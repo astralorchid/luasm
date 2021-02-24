@@ -4,3 +4,5 @@ content = string.split(content, " ")
 for i = 1,#content do
 print(content[i])
 end
+local n = bit.shl(1, 4)
+print(n)
