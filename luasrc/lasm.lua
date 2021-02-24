@@ -1,8 +1,17 @@
+local luasm = require("luasm")
 local argc, argv = getargs()
 local content = fopen(argv)
-content = string.split(content, " ")
-for i = 1,#content do
-print(content[i])
-end
-local n = bit.shl(1, 4)
-print(n)
+	local lines = luasm.tokenize(content)
+	for i = 1,#lines do
+		for b = 1,#lines[i] do
+			print(lines[i][b])
+		end
+	end
+	
+	local errors, bytecode = luasm.ParseTokens(lines)
+binalloc(4)
+writebyte(tonumber("0x10"))
+writebyte(tonumber("0xFF"))
+writebyte(tonumber("0xDE"))
+writebyte(tonumber("0xAD"))
+makebin("hello.bin")

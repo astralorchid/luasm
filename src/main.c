@@ -7,7 +7,9 @@
 
 int GLOBAL_ARGC;
 char* GLOBAL_ARGV;
-
+char* OUTPUT_BINARY;
+unsigned int OUTPUT_BINARY_SIZE = 0;
+unsigned int CURSOR = 0;
 int main(int argc, char* argv[])
 {
 
@@ -22,11 +24,11 @@ int main(int argc, char* argv[])
 
     lua_State* L = luaL_newstate();
     luaL_openlibs(L);
-    void* luaFile = luaL_dofile(L, "lasm.lua");
+    int luaFile = luaL_dofile(L, "lasm.lua");
 
     if (luaFile != LUA_OK) {
         size_t len;
-        char* lua_error = lua_tolstring(L, -1, &len);
+        const char* lua_error = lua_tolstring(L, -1, &len);
         printf("%s", lua_error);
     }
 

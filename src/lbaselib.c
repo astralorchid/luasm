@@ -22,6 +22,9 @@
 
 extern char* GLOBAL_ARGV;
 extern int GLOBAL_ARGC;
+extern char* OUTPUT_BINARY;
+extern unsigned int CURSOR;
+extern unsigned int OUTPUT_BINARY_SIZE;
 
 static int luaB_print (lua_State *L) {
   int n = lua_gettop(L);  /* number of arguments */
@@ -39,9 +42,50 @@ static int luaB_print (lua_State *L) {
   return 0;
 }
 
+static int luaB_binalloc(lua_State* L) {
+    int args = lua_gettop(L);
+    if (args == 1){
+        unsigned int binSize = lua_tointeger(L, 1);
+        if (binSize > 0) {
+            free(OUTPUT_BINARY);
+            OUTPUT_BINARY = malloc(binSize * sizeof(char));
+            OUTPUT_BINARY_SIZE = binSize;
+            CURSOR = 0;
+        }
+    }
+    else {}
+    return 0;
+}
+
+static int luaB_writebyte(lua_State* L) {
+    int args = lua_gettop(L);
+    if (args == 1) {
+        unsigned char byte = lua_tointeger(L, 1);
+        OUTPUT_BINARY[CURSOR] = byte;
+        CURSOR++;
+    }
+    else {}
+    return 0;
+}
+
+static int luaB_makebin(lua_State* L) {
+    int args = lua_gettop(L);
+    if (args == 1) {
+        size_t l;
+        const char* binName = lua_tolstring(L, 1, &l);
+        FILE* bin;
+        bin = fopen(binName, "wb");
+        fwrite(OUTPUT_BINARY, OUTPUT_BINARY_SIZE, 1, bin);
+        fclose(bin);
+    }
+    else {}
+    return 0;
+}
+
+
 static int luaB_fopen(lua_State* L) {
     size_t l;
-    char* fileName = luaL_tolstring(L, 1, &l);
+    const char* fileName = luaL_tolstring(L, 1, &l);
 
     FILE* f;
     int size;
@@ -57,9 +101,9 @@ static int luaB_fopen(lua_State* L) {
 
         char* content;
         content = malloc(size * sizeof(char));
-        if (content != NULL) {
+        if (content != 0) {
             fread(content, sizeof(char), size, f);
-            content[size] = NULL;
+            content[size] = 0;
         }
         else {
             printf("%s", "Content NULL");
@@ -535,6 +579,9 @@ static const luaL_Reg base_funcs[] = {
   {"pcall", luaB_pcall},
   {"print", luaB_print},
   {"fopen", luaB_fopen},
+  {"makebin", luaB_makebin},
+  {"binalloc", luaB_binalloc},
+  {"writebyte", luaB_writebyte},
   {"getargs", luaB_getargs},
   {"warn", luaB_warn},
   {"rawequal", luaB_rawequal},

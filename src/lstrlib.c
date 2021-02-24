@@ -1783,7 +1783,7 @@ static int str_split(lua_State* L) {
         unsigned int tokens = 0;
         unsigned int i;
         for (i = 0; i < l; i++) {
-            if (str[i] == split[0] && i < l) {
+            if (str[i] == split[0]) {
                 char* token = malloc(tokenLen*sizeof(*token)+1);
                 if (token != NULL) {
                     token[tokenLen] = 0;
@@ -1798,7 +1798,6 @@ static int str_split(lua_State* L) {
                     lua_pushnumber(L, tokens);
                     lua_pushstring(L, token);
                     lua_settable(L, -3);
-                    //printf("%s", token);
                     free(token);
                 }
                 else { printf("%s", "Insufficient memory"); }
@@ -1822,7 +1821,6 @@ static int str_split(lua_State* L) {
                 lua_pushnumber(L, tokens);
                 lua_pushstring(L, token);
                 lua_settable(L, -3);
-                //printf("%s", token);
                 free(token);
             }
             else { printf("%s", "Insufficient memory"); }
