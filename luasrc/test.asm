@@ -1,2 +1,3 @@
-mov ax, dx
-mov     bx , cx
+mov ax, [0x1000]
+mov cx, ax
+mov [bx], cx

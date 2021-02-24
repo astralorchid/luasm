@@ -39,8 +39,37 @@ function luasm.removeComma(b) --b is a token
 	return b
 end
 
+function luasm.checkMem(b)
+		if string.sub(b,1,1) == "[" then
+			b = string.sub(b,2,string.len(b))
+			if string.sub(b,string.len(b),string.len(b)) == "]" then
+				b = string.sub(b,1,string.len(b)-1)
+				return b, false
+			else
+				return b, true
+			end
+		end
+		if string.sub(b,string.len(b),string.len(b)) == "]" then
+			b = string.sub(b,1,string.len(b)-1)
+			return b, false
+		end
+		return b, nil
+end
+
+function setMemToken(mem_tokens, i, o, offset)
+	if mem_tokens[i] == nil then
+		mem_tokens[i] = {}
+		mem_tokens[i][o-offset] = true
+	else
+		mem_tokens[i][o-offset] = true
+	end
+end
+
 function luasm.tokenize(inputString)
 	local lines = {}
+	local mem_tokens = {}
+	local mem_flag = false
+
 	local offset = 0 --helps remove nil indices if throwing away tokens
 	local inputStringLines = string.split(inputString, luasm.RETURN_CHAR)
 	
@@ -53,13 +82,30 @@ function luasm.tokenize(inputString)
 
 			if b == "," or b == " " or b == string.char(10) or b == nil or b == "" then
 				offset = offset + 1
+			elseif b == "[" then
+				offset = offset + 1
+				mem_flag = true
+			elseif b == "]" then
+				offset = offset + 1
+				mem_flag = false
 			else
+				local b, mem_flag_update, mem_token = luasm.checkMem(b)
+				if mem_flag_update == nil then
+					if mem_flag == true then
+						setMemToken(mem_tokens, i, o, offset)
+					end
+				else
+					mem_flag = mem_flag_update
+					setMemToken(mem_tokens, i, o, offset)
+				end
+
 				lines[i][o-offset] = b
 			end
+
 		end
 	end
 	
-	return lines
+	return lines, mem_tokens
 end
 
 function luasm:FindToken(token)
@@ -81,21 +127,22 @@ function luasm:FindToken(token)
 	return nil, "Unrecognized label"
 end
 
-function luasm.ParseTokens(lines)
+function luasm.ParseTokens(lines, mem_tokens)
 	local errors = {}
-	local bytecode = ""
 	local imm = nil
 	for i,line in pairs(lines) do
 		local instFormat = ""
 		local proper = false
-		local lineBytecode = ""
 		local operands = 0
 		local opcodes = 0
 		for b = 1,#line do
 			local token, tokenType = luasm:FindToken(line[b])
 			if token then
-				print(token.." "..tokenType)
-				instFormat = instFormat.." "..tokenType
+				if mem_tokens[i] and mem_tokens[i][b] then
+					tokenType = "mem"..tokenType
+				end
+
+				instFormat = instFormat..tokenType.." "
 				
 				if tokenType == "OP" then
 					opcodes = opcodes + 1
@@ -107,8 +154,9 @@ function luasm.ParseTokens(lines)
 				proper = false
 				break
 			end
+			
 		end
-		
+		print(instFormat)
 		if opcodes > 1 then
 			table.insert(errors, {"Invalid instruction format", i})
 			break	
@@ -121,11 +169,9 @@ function luasm.ParseTokens(lines)
 			table.insert(errors, {"Invalid instruction format", i})
 			break
 		end
-		
-		bytecode = bytecode..lineBytecode
 	end
 	
-	return errors, bytecode
+	return errors
 end
 
 return luasm
