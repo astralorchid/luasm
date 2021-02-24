@@ -29,10 +29,10 @@ luasm.ILLEGAL_INST_FORMAT = {
 }
 function luasm.removeComma(b) --b is a token 
 	if string.len(b) > 1 then --remove commas
-		if string.sub(b,1,1) == "," then
+		if string.sub(b,1,1) == "," or string.byte(string.sub(b,1,1)) == 9 then
 			b = string.sub(b,2,string.len(b))
 		end
-		if string.sub(b,string.len(b),string.len(b)) == "," then
+		if string.sub(b,string.len(b),string.len(b)) == "," or string.byte(string.sub(b,1,1)) == 9 then
 			b = string.sub(b,1,string.len(b)-1)
 		end
 	end
@@ -80,7 +80,7 @@ function luasm.tokenize(inputString)
 
 			b = luasm.removeComma(b)
 
-			if b == "," or b == " " or b == string.char(10) or b == nil or b == "" then
+			if b == "," or b == " " or string.byte(b) == 10 or string.byte(b) == 9 or b == nil or b == ""  then
 				offset = offset + 1
 			elseif b == "[" then
 				offset = offset + 1
@@ -156,7 +156,7 @@ function luasm.ParseTokens(lines, mem_tokens)
 			end
 			
 		end
-		print(instFormat)
+		--print(instFormat)
 		if opcodes > 1 then
 			table.insert(errors, {"Invalid instruction format", i})
 			break	

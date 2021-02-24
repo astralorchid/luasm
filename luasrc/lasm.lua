@@ -8,7 +8,7 @@ local content = fopen(argv)
 		end
 	end
 	
-	local errors, bytecode = luasm.ParseTokens(lines, mem_tokens)
+	--local errors, bytecode = luasm.ParseTokens(lines, mem_tokens)
 --[[binalloc(4)
 writebyte(tonumber("0x10"))
 writebyte(tonumber("0xFF"))
