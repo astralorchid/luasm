@@ -1779,8 +1779,8 @@ static int str_split(lua_State* L) {
         }
     }
     else if (args == 2) {
-        int tokenLen = 0;
-        int tokens = 0;
+        unsigned int tokenLen = 0;
+        unsigned int tokens = 0;
         unsigned int i;
         for (i = 0; i < l; i++) {
             if (str[i] == split[0] && i < l) {

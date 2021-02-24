@@ -7,18 +7,24 @@
 
 #define ARG1_INVALID "Bit shift: argument 1 must be an integer and greater than 0"
 #define NOT_ENOUGH_ARGS "Bit shift requires 2 arguments"
+
 static int bit_shl(lua_State* L) {
 	int args = lua_gettop(L);
 	if (args == 2) {
 		unsigned int n = lua_tointeger(L, 1);
 		unsigned int shift = lua_tointeger(L, 2);
-		int shifted = n << shift;
+		unsigned int shifted = n << shift;
+		if (n == 0) {
+			char* arg1_err = ARG1_INVALID;
+			lua_pushstring(L, arg1_err);
+			lua_error(L);
+		}
 		lua_pushinteger(L, shifted);
 		return 1;
 	}
 	else {
-		char* arg1_err = NOT_ENOUGH_ARGS;
-		lua_pushstring(L, arg1_err);
+		char* argamt_err = NOT_ENOUGH_ARGS;
+		lua_pushstring(L, argamt_err);
 		lua_error(L);
 		return 0;
 	}
