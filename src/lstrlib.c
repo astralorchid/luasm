@@ -1783,6 +1783,7 @@ static int str_split(lua_State* L) {
         unsigned int tokens = 0;
         unsigned int i;
         for (i = 0; i < l; i++) {
+            if (str[i] == 9) { continue; }
             if (str[i] == split[0]) {
                 char* token = malloc(tokenLen*sizeof(*token)+1);
                 if (token != NULL) {
