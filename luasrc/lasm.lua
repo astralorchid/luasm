@@ -1,18 +1,19 @@
-
-local luasm = require("luasm")
-local argc, argv = getargs()
-local content = fopen(argv)
-
-local lines, mem_tokens = luasm.tokenize(content)
-for i,v in pairs(lines) do
+--[[for i,v in pairs(lines) do
 	for o,b in pairs(v) do
 	print(b)
 	end
-end
+end]]
+local luasm = require("luasm")
+local argc, argv = getargs()
+local content = fopen(argv)
+local lines, mem_tokens = luasm.tokenize(content)
+local errors = luasm.assemble(lines, mem_tokens)
 
-local e = bit.OR(2,4)
-print(e)
-local errors, bytecode = luasm.ParseTokens(lines, mem_tokens)
+if #errors > 0 then
+	for i,v in pairs(errors) do
+	print("luasm:"..argv..":"..v[2]..":".." "..v[1])
+	end
+end
 --[[binalloc(4)
 writebyte(tonumber("0x10"))
 writebyte(tonumber("0xFF"))
