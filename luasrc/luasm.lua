@@ -348,7 +348,9 @@ function luasm.assemble(lines, mem_tokens)
 					destBit = 0
 				end
 				if luasm.RMField[tokenPair[1]] then
-					RM = luasm.RMField[tokenPair[1]]
+					if not RM then
+						RM = luasm.RMField[tokenPair[1]]
+					end
 				else
 					table.insert(errors, {"Invalid address register", i})
 					break
@@ -367,7 +369,9 @@ function luasm.assemble(lines, mem_tokens)
 						MOD = 2
 					end
 				elseif instFormat[_-1][2] == "memREG" and instFormat[_+1][2] == "memREG" then
+				print(instFormat[_-1][1].."_"..instFormat[_+1][1])
 					RM = luasm.RMField[instFormat[_-1][1].."_"..instFormat[_+1][1]]
+					print("GOT RM")
 				end
 			elseif tokenPair[2] == "memPLUS" and (not instFormat[_+1] or not instFormat[_-1]) then
 				print("Incomplete expression")
@@ -380,7 +384,7 @@ function luasm.assemble(lines, mem_tokens)
 
 		if REG and RM then
 			modRMByte = MOD
-			modRMByte = bit.shl(modRMByte, 2)
+			modRMByte = bit.shl(modRMByte, 3)
 			modRMByte = bit.OR(modRMByte, REG)
 			modRMByte = bit.shl(modRMByte, 3)
 			modRMByte = bit.OR(modRMByte, RM)

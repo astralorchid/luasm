@@ -1,1 +1,1 @@
-mov ax [bx]
+mov ax, [ bx + si + 1 ]
