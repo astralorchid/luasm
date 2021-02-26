@@ -55,6 +55,14 @@ luasm.REG_SIZES = {
 	REG_BP = "WORD",
 	REG_SI = "WORD",
 	REG_DI = "WORD",
+
+	SREG_CS = "WORD",
+	SREG_DS = "WORD",
+	SREG_ES = "WORD",
+	SREG_FS = "WORD",
+	SREG_GS = "WORD",
+	SREG_SS = "WORD",
+
 	SIZE_BYTE = "BYTE",
 	SIZE_WORD = "WORD",
 	SIZE_DWORD = "DWORD",
@@ -78,6 +86,13 @@ luasm.REGField = {
 	REG_BP = 5,
 	REG_SI = 6,
 	REG_DI = 7,
+
+	SREG_DS = 3,
+	SREG_ES = 0,
+	SREG_FS = 4,
+	SREG_GS = 5,
+	SREG_SS = 2,
+
 }
 
 luasm.ILLEGAL_INST_FORMAT = {
@@ -157,7 +172,24 @@ luasm.RMField = {
 	REG_SI = 4,
 	REG_DI = 5,
 	REG_BP = 6,
-	REG_BX = 7
+	REG_BX = 7,
+
+	SREG_DS = 3,
+	SREG_ES = 0,
+	SREG_FS = 4,
+	SREG_GS = 5,
+	SREG_SS = 2,
+}
+
+luasm.SREG_RMField = {
+	REG_AX = 0,
+	REG_CX = 1,
+	REG_DX = 2,
+	REG_BX = 3,
+	REG_SP = 4,
+	REG_BP = 5,
+	REG_SI = 6,
+	REG_DI = 7,
 }
 function luasm.removeComma(b) --b is a token 
 	if string.len(b) > 1 then --remove commas
@@ -295,7 +327,7 @@ function luasm.assemble(lines, mem_tokens)
 		local operandSize
 		local destBit --dictates dest/src of R/M and REG fields (opcodeByte bit 1)
 		local sizeBit --dictates instruction size (opcodeByte bit 0)
-
+		local has_SREG = false
 		for b = 1,#line do
 			local token, tokenType = luasm:FindToken(line[b])
 			if token then
@@ -354,6 +386,27 @@ function luasm.assemble(lines, mem_tokens)
 					dualREG = true
 					MOD = 3
 				end
+
+				if instFormat[_-1] and instFormat[_-1][2] == "SREG" then
+					instBytes.opcodeByte = 140 --MOV SREG, REG opcode
+					destBit = 2
+					REG = luasm.REGField[instFormat[_-1][1]]
+					RM = luasm.SREG_RMField[tokenPair[1]]
+					print(REG)
+					print(RM)
+					MOD = 3
+					has_SREG = true
+					print("SREG FIRST OPERAND")
+				elseif instFormat[_+1] and instFormat[_+1][2] == "SREG" then
+					instBytes.opcodeByte = 140
+					destBit = 0
+					RM = luasm.SREG_RMField[tokenPair[1]]
+					REG = luasm.REGField[instFormat[_+1][1]]
+					MOD = 3
+					has_SREG = true
+					print("SREG 2nd OPERAND")
+				end
+
 			end
 
 			if tokenPair[2] == "IMM" then
@@ -429,7 +482,7 @@ function luasm.assemble(lines, mem_tokens)
 			instBytes.modRMByte = bit.OR(instBytes.modRMByte, RM)
 		end
 
-		if operandSize == "BYTE" then
+		if operandSize == "BYTE" or has_SREG then
 			sizeBit = 0
 		elseif operandSize == "WORD" then 
 			sizeBit = 1
@@ -445,7 +498,7 @@ function luasm.assemble(lines, mem_tokens)
 		print((operandSize or "--").." "..string.format("%x", (instBytes.opcodeByte or "0")).." "..string.format("%x", (instBytes.modRMByte or "0")).." "..string.format("%x", (instBytes.displacementByte or "0")).." "..string.format("%x", (instBytes.immediateByte or "0")))
 		
 		if instBytes.opcodeByte then table.insert(outputbin, instBytes.opcodeByte) end
-		if instBytes.modRMByte then table.insert(outputbin, instBytes.modRMByte) end
+		if instBytes.modRMByte then print("MODRMBYTE WRITTEN") table.insert(outputbin, instBytes.modRMByte) end
 		if instBytes.displacementByte then table.insert(outputbin, instBytes.displacementByte) end
 		if instBytes.immediateByte then table.insert(outputbin, instBytes.immediateByte) end
 	end

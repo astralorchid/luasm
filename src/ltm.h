@@ -41,7 +41,6 @@ typedef enum {
   TM_CONCAT,
   TM_CALL,
   TM_CLOSE,
-  TM_ITER,
   TM_N		/* number of elements in the enum */
 } TMS;
 

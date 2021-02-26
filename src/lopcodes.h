@@ -265,8 +265,7 @@ OP_LEN,/*	A B	R[A] := #R[B] (length operator)			*/
 
 OP_CONCAT,/*	A B	R[A] := R[A].. ... ..R[A + B - 1]		*/
 
-OP_CLOSE,
-OP_ITER,/*	A	close all upvalues >= R[A]			*/
+OP_CLOSE,/*	A	close all upvalues >= R[A]			*/
 OP_TBC,/*	A	mark variable A "to be closed"			*/
 OP_JMP,/*	sJ	pc += sJ					*/
 OP_EQ,/*	A B k	if ((R[A] == R[B]) ~= k) then pc++		*/

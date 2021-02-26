@@ -1530,10 +1530,6 @@ void luaV_execute (lua_State *L, CallInfo *ci) {
         Protect(luaF_close(L, ra, LUA_OK));
         vmbreak;
       }
-      vmcase(OP_ITER) {
-          printf("%s", "test");
-          vmbreak;
-      }
       vmcase(OP_TBC) {
         /* create new to-be-closed upvalue */
         halfProtect(luaF_newtbcupval(L, ra));

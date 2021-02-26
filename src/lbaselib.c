@@ -351,9 +351,6 @@ static int luaB_pairs (lua_State *L) {
     lua_pushvalue(L, 1);  /* state, */
     lua_pushnil(L);  /* and initial value */
   }
-  else if (luaL_getmetafield(L, 1, "__iter") != LUA_TNIL) {
-      printf("%s", "has iter metamethod");
-  }
   else {
     lua_pushvalue(L, 1);  /* argument 'self' to metamethod */
     lua_call(L, 1, 3);  /* get 3 values from metamethod */
