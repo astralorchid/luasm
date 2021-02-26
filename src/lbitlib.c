@@ -74,6 +74,7 @@ static int bit_or(lua_State* L) {
 
 static const luaL_Reg bitlib[] = {
 	{"shl", bit_shl},
+	{"shr", bit_shr},
 	{"OR", bit_or},
 	{NULL, NULL}
 };

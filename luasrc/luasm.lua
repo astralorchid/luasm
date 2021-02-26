@@ -7,6 +7,7 @@ luasm.TOKEN = {
 	mov = "OP_MOV",
 	add = "OP_ADD",
 	sub = "OP_SUB",
+	xor = "OP_XOR",
 	["+"] = "PLUS",
 	ax = "REG_AX",
 	cx = "REG_CX",
@@ -217,6 +218,7 @@ function luasm.checkMem(b)
 	local ss = string.sub
 	if ss(b,1,1) == "[" then
 		b = ss(b,2,bLen)
+		bLen = string.len(b)
 		if ss(b,bLen,bLen) == "]" then
 			b = ss(b,1,bLen-1)
 			return b, false
@@ -255,6 +257,7 @@ function luasm.tokenize(inputString)
 		for o,b in pairs(inputStringTokens) do
 		
 			b = luasm.removeComma(b)
+
 			if b == "," or b == " " or string.byte(b) == 10--[[ or string.byte(b) == 9]] or b == nil or b == "" then
 				offset = offset + 1
 			elseif b == "[" then
@@ -275,7 +278,7 @@ function luasm.tokenize(inputString)
 				end
 
 				lines[i][o-offset] = b
-				print(b.." | "..o-offset)
+				--print(b.." | "..o-offset)
 			end
 		end
 	end
@@ -298,7 +301,7 @@ function luasm:FindToken(token)
 	if tokenImmediate then
 		return tokenImmediate, "IMM"
 	end
-	
+
 	return nil, "Unrecognized label"
 end
 
@@ -328,6 +331,7 @@ function luasm.assemble(lines, mem_tokens)
 		local destBit --dictates dest/src of R/M and REG fields (opcodeByte bit 1)
 		local sizeBit --dictates instruction size (opcodeByte bit 0)
 		local has_SREG = false
+		local isImmMemAddr = false --bool for an immediate memory addressing operation
 		for b = 1,#line do
 			local token, tokenType = luasm:FindToken(line[b])
 			if token then
@@ -392,11 +396,11 @@ function luasm.assemble(lines, mem_tokens)
 					destBit = 2
 					REG = luasm.REGField[instFormat[_-1][1]]
 					RM = luasm.SREG_RMField[tokenPair[1]]
-					print(REG)
-					print(RM)
+					--print(REG)
+					--print(RM)
 					MOD = 3
 					has_SREG = true
-					print("SREG FIRST OPERAND")
+					--print("SREG FIRST OPERAND")
 				elseif instFormat[_+1] and instFormat[_+1][2] == "SREG" then
 					instBytes.opcodeByte = 140
 					destBit = 0
@@ -404,7 +408,7 @@ function luasm.assemble(lines, mem_tokens)
 					REG = luasm.REGField[instFormat[_+1][1]]
 					MOD = 3
 					has_SREG = true
-					print("SREG 2nd OPERAND")
+					--print("SREG 2nd OPERAND")
 				end
 
 			end
@@ -421,6 +425,7 @@ function luasm.assemble(lines, mem_tokens)
 				end
 				RM = 6
 				instBytes.displacementByte = tokenPair[1]
+				isImmMemAddr = true
 			end
 
 			if tokenPair[2] == "memREG" then
@@ -449,9 +454,9 @@ function luasm.assemble(lines, mem_tokens)
 						MOD = 2
 					end
 				elseif instFormat[_-1][2] == "memREG" and instFormat[_+1][2] == "memREG" then
-					print(instFormat[_-1][1].."_"..instFormat[_+1][1])
+					--print(instFormat[_-1][1].."_"..instFormat[_+1][1])
 					RM = luasm.RMField[instFormat[_-1][1].."_"..instFormat[_+1][1]]
-					print("GOT RM")
+					--print("GOT RM")
 				end
 			elseif tokenPair[2] == "memPLUS" and (not instFormat[_+1] or not instFormat[_-1]) then
 				print("Incomplete expression")
@@ -498,8 +503,25 @@ function luasm.assemble(lines, mem_tokens)
 		print((operandSize or "--").." "..string.format("%x", (instBytes.opcodeByte or "0")).." "..string.format("%x", (instBytes.modRMByte or "0")).." "..string.format("%x", (instBytes.displacementByte or "0")).." "..string.format("%x", (instBytes.immediateByte or "0")))
 		
 		if instBytes.opcodeByte then table.insert(outputbin, instBytes.opcodeByte) end
-		if instBytes.modRMByte then print("MODRMBYTE WRITTEN") table.insert(outputbin, instBytes.modRMByte) end
-		if instBytes.displacementByte then table.insert(outputbin, instBytes.displacementByte) end
+		if instBytes.modRMByte then table.insert(outputbin, instBytes.modRMByte) end
+
+		if instBytes.displacementByte then
+			if (instBytes.displacementByte > 255 and instBytes.displacementByte <= 65535) or isImmMemAddr then
+				local firstByte = bit.shl(instBytes.displacementByte, 24)
+				firstByte = bit.shr(firstByte, 24)
+				print(firstByte)
+				local secondByte = bit.shr(instBytes.displacementByte, 8)
+				secondByte = bit.shl(secondByte, 24)
+				secondByte = bit.shr(secondByte, 24)
+				print(secondByte)
+				table.insert(outputbin, firstByte)
+				table.insert(outputbin, secondByte)
+			else
+				table.insert(outputbin, instBytes.displacementByte)
+			end
+			
+		end
+
 		if instBytes.immediateByte then table.insert(outputbin, instBytes.immediateByte) end
 	end
 	local outStr = ""
