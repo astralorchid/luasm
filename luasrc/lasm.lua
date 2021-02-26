@@ -7,7 +7,7 @@ local luasm = require("luasm")
 local argc, argv = getargs()
 local content = fopen(argv)
 local lines, mem_tokens = luasm.tokenize(content)
-local errors = luasm.assemble(lines, mem_tokens)
+errors = luasm.assemble(lines, mem_tokens)
 
 if #errors > 0 then
 	for i,v in pairs(errors) do

@@ -19,7 +19,7 @@
 
 #include "lauxlib.h"
 #include "lualib.h"
-
+#include "ltm.h"
 extern char* GLOBAL_ARGV;
 extern int GLOBAL_ARGC;
 extern char* OUTPUT_BINARY;
@@ -350,6 +350,9 @@ static int luaB_pairs (lua_State *L) {
     lua_pushcfunction(L, luaB_next);  /* will return generator, */
     lua_pushvalue(L, 1);  /* state, */
     lua_pushnil(L);  /* and initial value */
+  }
+  else if (luaL_getmetafield(L, 1, "__iter") != LUA_TNIL) {
+      printf("%s", "has iter metamethod");
   }
   else {
     lua_pushvalue(L, 1);  /* argument 'self' to metamethod */

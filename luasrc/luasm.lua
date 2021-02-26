@@ -31,13 +31,34 @@ luasm.TOKEN = {
 	fs = "SREG_FS",
 	gs = "SREG_GS",
 	ss = "SREG_SS",
+
+	byte = "SIZE_BYTE",
+	word = "SIZE_WORD",
+	dword = "SIZE_DWORD",
+	qword = "SIZE_QWORD",
 }
 
 luasm.REG_SIZES = {
-	l = "BYTE",
-	x = "WORD",
-	e = "DWORD",
-	r = "QWORD",
+	REG_AL = "BYTE",
+	REG_CL = "BYTE",
+	REG_DL = "BYTE",
+	REG_BL = "BYTE",
+	REG_AH = "BYTE",
+	REG_CH = "BYTE",
+	REG_DH = "BYTE",
+	REG_BH = "BYTE",
+	REG_AX = "WORD",
+	REG_CX = "WORD",
+	REG_DX = "WORD",
+	REG_BX = "WORD",
+	REG_SP = "WORD",
+	REG_BP = "WORD",
+	REG_SI = "WORD",
+	REG_DI = "WORD",
+	SIZE_BYTE = "BYTE",
+	SIZE_WORD = "WORD",
+	SIZE_DWORD = "DWORD",
+	SIZE_QWORD = "QWORD"
 }
 
 luasm.REGField = {
@@ -152,29 +173,30 @@ function luasm.removeComma(b) --b is a token
 end
 
 function luasm.getRegSize(token)
-	local tokenLow = string.lower(token)
 	for char, size in pairs(luasm.REG_SIZES) do
-		if string.find(tokenLow, char, 4) then
+		if token == char then
 			return size
 		end
 	end
 end
 
 function luasm.checkMem(b)
-		if string.sub(b,1,1) == "[" then
-			b = string.sub(b,2,string.len(b))
-			if string.sub(b,string.len(b),string.len(b)) == "]" then
-				b = string.sub(b,1,string.len(b)-1)
-				return b, false
-			else
-				return b, true
-			end
-		end
-		if string.sub(b,string.len(b),string.len(b)) == "]" then
-			b = string.sub(b,1,string.len(b)-1)
+	local bLen = string.len(b)
+	local ss = string.sub
+	if ss(b,1,1) == "[" then
+		b = ss(b,2,bLen)
+		if ss(b,bLen,bLen) == "]" then
+			b = ss(b,1,bLen-1)
 			return b, false
+		else
+			return b, true
 		end
-		return b, nil
+	end
+	if ss(b,bLen,bLen) == "]" then
+		b = ss(b,1,bLen-1)
+		return b, false
+	end
+	return b, nil
 end
 
 function setMemToken(mem_tokens, i, o, offset)
@@ -191,16 +213,16 @@ function luasm.tokenize(inputString)
 	local mem_tokens = {}
 	local mem_flag = false
 
-	local offset = 0 --helps remove nil indices if throwing away tokens
+	 --helps remove nil indices if throwing away tokens
 	local inputStringLines = string.split(inputString, luasm.RETURN_CHAR)
 	
 	for i,v in pairs(inputStringLines) do
-	
+		local offset = 0
 		lines[i] = {}
 		local inputStringTokens = string.split(v, luasm.SPACE_CHAR)
 		for o,b in pairs(inputStringTokens) do
+		
 			b = luasm.removeComma(b)
-			
 			if b == "," or b == " " or string.byte(b) == 10--[[ or string.byte(b) == 9]] or b == nil or b == "" then
 				offset = offset + 1
 			elseif b == "[" then
@@ -221,6 +243,7 @@ function luasm.tokenize(inputString)
 				end
 
 				lines[i][o-offset] = b
+				print(b.." | "..o-offset)
 			end
 		end
 	end
@@ -248,7 +271,7 @@ function luasm:FindToken(token)
 end
 
 function luasm.assemble(lines, mem_tokens)
-
+	local outputbin = {}
 	local errors = {}
 	local imm = nil
 	for i,line in pairs(lines) do
@@ -257,15 +280,17 @@ function luasm.assemble(lines, mem_tokens)
 		local operands = 0
 		local opcodes = 0
 
-		local opcodeByte
-		local opcodeToken
-		local modRMByte --MOD dictates register addressing (RA) modes
+		local instBytes = {
+			opcodeByte = nil,
+			modRMByte = nil,--MOD dictates register addressing (RA) modes
+			displacementByte = nil,--RA displacement (if applicable)
+			immediateByte = nil--immediate value (if applicable)
+		}
+		local opcodeToken 
 		local MOD = 0
 		local REG
 		local RM
-		local dualREG = false
-		local displacementByte --RA displacement (if applicable)
-		local immediateByte --immediate value (if applicable)
+		local dualREG = false 
 		local immReg --sets REG field in modRMByte if immediate operand
 		local operandSize
 		local destBit --dictates dest/src of R/M and REG fields (opcodeByte bit 1)
@@ -274,6 +299,7 @@ function luasm.assemble(lines, mem_tokens)
 		for b = 1,#line do
 			local token, tokenType = luasm:FindToken(line[b])
 			if token then
+			--print(token)
 				if mem_tokens[i] and mem_tokens[i][b] then
 					tokenType = "mem"..tokenType
 				end
@@ -283,7 +309,7 @@ function luasm.assemble(lines, mem_tokens)
 				if tokenType == "OP" then
 					opcodes = opcodes + 1
 					opcodeToken = token
-					opcodeByte = luasm.OPCODES[token]
+					instBytes.opcodeByte = luasm.OPCODES[token]
 				end
 				
 				proper = true
@@ -326,12 +352,13 @@ function luasm.assemble(lines, mem_tokens)
 				else
 					RM = luasm.REGField[tokenPair[1]]
 					dualREG = true
+					MOD = 3
 				end
 			end
 
 			if tokenPair[2] == "IMM" then
-				immediateByte = tokenPair[1]
-				opcodeByte = luasm.IMM_OPCODES[opcodeToken]
+				instBytes.immediateByte = tokenPair[1]
+				instBytes.opcodeByte = luasm.IMM_OPCODES[opcodeToken]
 				REG = luasm.IMM_OPCODE_EXT[opcodeToken]
 			end
 
@@ -340,7 +367,7 @@ function luasm.assemble(lines, mem_tokens)
 					destBit = 0
 				end
 				RM = 6
-				displacementByte = tokenPair[1]
+				instBytes.displacementByte = tokenPair[1]
 			end
 
 			if tokenPair[2] == "memREG" then
@@ -360,21 +387,33 @@ function luasm.assemble(lines, mem_tokens)
 			if tokenPair[2] == "memPLUS" and instFormat[_+1] and instFormat[_-1] then
 				if instFormat[_-1][2] == "memREG" and instFormat[_+1][2] == "memIMM" then --[bx + 1]
 					instFormat[_+1][2] = "DISP" --change token memIMM to DISP
-					displacementByte = instFormat[_+1][1] --the actual integer
+					instBytes.displacementByte = instFormat[_+1][1] --the actual integer
 					if dualREG then
 						MOD = 3
-					elseif displacementByte <= 255 then
+					elseif instBytes.displacementByte <= 255 then
 						MOD = 1
-					elseif displacementByte <= 65535 then
+					elseif instBytes.displacementByte <= 65535 then
 						MOD = 2
 					end
 				elseif instFormat[_-1][2] == "memREG" and instFormat[_+1][2] == "memREG" then
-				print(instFormat[_-1][1].."_"..instFormat[_+1][1])
+					print(instFormat[_-1][1].."_"..instFormat[_+1][1])
 					RM = luasm.RMField[instFormat[_-1][1].."_"..instFormat[_+1][1]]
 					print("GOT RM")
 				end
 			elseif tokenPair[2] == "memPLUS" and (not instFormat[_+1] or not instFormat[_-1]) then
 				print("Incomplete expression")
+			end
+
+			if tokenPair[2] == "SIZE" then
+				local opSize = luasm.getRegSize(tokenPair[1])
+				if operandSize == nil then
+					operandSize = opSize
+				else
+					if operandSize ~= opSize then
+						table.insert(errors, {"Operand size mismatch", i})
+						break
+					end
+				end
 			end
 
 			print(tokenPair[2])
@@ -383,11 +422,11 @@ function luasm.assemble(lines, mem_tokens)
 		if #errors > 0 then break end
 
 		if REG and RM then
-			modRMByte = MOD
-			modRMByte = bit.shl(modRMByte, 3)
-			modRMByte = bit.OR(modRMByte, REG)
-			modRMByte = bit.shl(modRMByte, 3)
-			modRMByte = bit.OR(modRMByte, RM)
+			instBytes.modRMByte = MOD
+			instBytes.modRMByte = bit.shl(instBytes.modRMByte, 3)
+			instBytes.modRMByte = bit.OR(instBytes.modRMByte, REG)
+			instBytes.modRMByte = bit.shl(instBytes.modRMByte, 3)
+			instBytes.modRMByte = bit.OR(instBytes.modRMByte, RM)
 		end
 
 		if operandSize == "BYTE" then
@@ -397,17 +436,28 @@ function luasm.assemble(lines, mem_tokens)
 		end
 
 		if sizeBit then
-			opcodeByte = bit.OR(opcodeByte, sizeBit)
+			instBytes.opcodeByte = bit.OR(instBytes.opcodeByte, sizeBit)
 		end
 
 		if destBit then
-			opcodeByte = bit.OR(opcodeByte, destBit)
+			instBytes.opcodeByte = bit.OR(instBytes.opcodeByte, destBit)
 		end
-		print((operandSize or "--").." "..string.format("%x", (opcodeByte or "0")).." "..string.format("%x", (modRMByte or "0")).." "..string.format("%x", (displacementByte or "0")).." "..string.format("%x", (immediateByte or "0")))
+		print((operandSize or "--").." "..string.format("%x", (instBytes.opcodeByte or "0")).." "..string.format("%x", (instBytes.modRMByte or "0")).." "..string.format("%x", (instBytes.displacementByte or "0")).." "..string.format("%x", (instBytes.immediateByte or "0")))
+		
+		if instBytes.opcodeByte then table.insert(outputbin, instBytes.opcodeByte) end
+		if instBytes.modRMByte then table.insert(outputbin, instBytes.modRMByte) end
+		if instBytes.displacementByte then table.insert(outputbin, instBytes.displacementByte) end
+		if instBytes.immediateByte then table.insert(outputbin, instBytes.immediateByte) end
 	end
-
-	
-	
+	local outStr = ""
+	for i,v in pairs(outputbin) do
+		local outStrHex = string.format("%x", v)
+		if string.len(outStrHex) < 2 then
+			outStrHex = "0"..outStrHex
+		end
+		outStr = outStr..outStrHex.." "
+	end
+	print(outStr)
 	return errors
 end
 

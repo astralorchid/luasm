@@ -1,1 +1,2 @@
-mov ax, [ bx + si + 1 ]
+mov ax, [ bx + si + 0x10 ]
+mov ax, bx
