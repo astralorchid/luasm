@@ -506,7 +506,7 @@ function luasm.assemble(lines, mem_tokens)
 		if instBytes.modRMByte then table.insert(outputbin, instBytes.modRMByte) end
 
 		if instBytes.displacementByte then
-			if (instBytes.displacementByte > 255 and instBytes.displacementByte <= 65535) or isImmMemAddr then
+			if (instBytes.displacementByte > 255 and instBytes.displacementByte < 65536) or isImmMemAddr then
 				local firstByte = bit.shl(instBytes.displacementByte, 24)
 				firstByte = bit.shr(firstByte, 24)
 				print(firstByte)

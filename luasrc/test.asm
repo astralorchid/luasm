@@ -4,4 +4,4 @@ mov es, ax
 mov fs, ax
 mov gs, ax
 mov ss, ax
-mov [0xb820], 255
+mov [0x0001], 255
