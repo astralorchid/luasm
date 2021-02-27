@@ -55,6 +55,11 @@ luasm.TOKEN = {
 	word = "SIZE_WORD",
 	dword = "SIZE_DWORD",
 	qword = "SIZE_QWORD",
+
+	db = "DEF_BYTE",
+	dw = "DEF_WORD",
+	dd = "DEF_DWORD",
+	dq = "DEF_QWORD"
 }
 
 luasm.REG_SIZES = {
@@ -364,12 +369,15 @@ function luasm:FindToken(token)
 
 end
 
-local outputbinMT = {
-	__newindex = function(t,k,v)
-		rawset(t, k, v)
-	end
-}
 function luasm.assemble(lines, mem_tokens)
+	local labels = {}
+
+	local outputbinMT = {
+		__newindex = function(t,k,v)
+			rawset(t, k, v)
+		end
+	}
+
 	local outputbin = {}
 	setmetatable(outputbin, outputbinMT)
 
@@ -401,7 +409,7 @@ function luasm.assemble(lines, mem_tokens)
 		local has_SREG = false
 		local isImmMemAddr = false --bool for an immediate memory addressing operation
 		local alreadyEncoded = false --some operations have special encoding before the end of the instFormat loop
-
+		local hasLabel = false
 		for b = 1,#line do
 			local token, tokenType = luasm:FindToken(line[b])
 			if token then
@@ -439,13 +447,21 @@ function luasm.assemble(lines, mem_tokens)
 			break
 		end
 
-		--[[Pass 1]]
+		--[[Label definition pass]]
 		for _,tokenPair in pairs(instFormat) do
 			if tokenPair[2] == "LABEL" then
+				if instFormat[_+1] and (instFormat[_+1][2] == "COLON" or instFormat[_+1][2] == "DEF") and not instFormat[_-1] then
+					labels[tokenPair[1]] = 0
+					hasLabel = true
+				elseif not labels[tokenPair[1]] then
+					table.insert(errors, {"Undefined label", i})
+					break
+				end
 			end
+			
 		end
 
-		--[[Pass 2]]
+		--[[Assembler pass]]
 		for _,tokenPair in pairs(instFormat) do --{token, tokenType}
 
 			if tokenPair[2] == "OP" then
@@ -590,7 +606,7 @@ function luasm.assemble(lines, mem_tokens)
 
 		if alreadyEncoded then goto endEncode end
 
-		if not operandSize then
+		if not operandSize and instBytes.opcodeByte then
 			table.insert(errors, {"Operand size not specified", i})
 			break
 		end
