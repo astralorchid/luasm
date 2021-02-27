@@ -14,12 +14,6 @@ static int bit_shl(lua_State* L) {
 		unsigned int n = lua_tointeger(L, 1);
 		unsigned int shift = lua_tointeger(L, 2);
 		unsigned int shifted = n << shift;
-		/*if (n == 0) {
-			char* arg1_err = ARG1_INVALID;
-			lua_pushstring(L, arg1_err);
-			lua_error(L);
-			return 0;
-		}*/
 		lua_pushinteger(L, shifted);
 		return 1;
 	}

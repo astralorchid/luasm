@@ -8,6 +8,8 @@ luasm.TOKEN = {
 	add = "OP_ADD",
 	sub = "OP_SUB",
 	xor = "OP_XOR",
+	inc = "OP_INC",
+	dec = "OP_DEC",
 	["+"] = "PLUS",
 	ax = "REG_AX",
 	cx = "REG_CX",
@@ -113,6 +115,9 @@ OP_SCASB = 174,
 OP_SCASW = 175,
 OP_RET = 195,
 OP_RETF = 203,
+
+OP_INC = 64,
+OP_DEC = 72,
 
 OP_MOV = 136,
 OP_XOR = 48,
@@ -305,8 +310,15 @@ function luasm:FindToken(token)
 	return nil, "Unrecognized label"
 end
 
+local outputbinMT = {
+	__newindex = function(t,k,v)
+		rawset(t, k, v)
+	end
+}
 function luasm.assemble(lines, mem_tokens)
 	local outputbin = {}
+	setmetatable(outputbin, outputbinMT)
+
 	local errors = {}
 	local imm = nil
 	for i,line in pairs(lines) do
@@ -321,6 +333,8 @@ function luasm.assemble(lines, mem_tokens)
 			displacementByte = nil,--RA displacement (if applicable)
 			immediateByte = nil--immediate value (if applicable)
 		}
+
+		
 		local opcodeToken 
 		local MOD = 0
 		local REG
@@ -332,6 +346,7 @@ function luasm.assemble(lines, mem_tokens)
 		local sizeBit --dictates instruction size (opcodeByte bit 0)
 		local has_SREG = false
 		local isImmMemAddr = false --bool for an immediate memory addressing operation
+		local alreadyEncoded = false --some operations have special encoding before the end of the instFormat loop
 		for b = 1,#line do
 			local token, tokenType = luasm:FindToken(line[b])
 			if token then
@@ -371,6 +386,34 @@ function luasm.assemble(lines, mem_tokens)
 		end
 
 		for _,tokenPair in pairs(instFormat) do --{token, tokenType}
+
+			if tokenPair[2] == "OP" then
+				if instBytes.opcodeByte == 64 or instBytes.opcodeByte == 72 then --if inc
+					if instFormat[_+1] and instFormat[_+1][2] == "REG" then
+						local incRegSize = luasm.getRegSize(instFormat[_+1][1])
+						if incRegSize == "WORD" then
+							instBytes.opcodeByte = bit.OR(instBytes.opcodeByte, luasm.REGField[instFormat[_+1][1]])
+							table.insert(outputbin, instBytes.opcodeByte)
+							alreadyEncoded = true
+							break
+						elseif incRegSize == "BYTE" then
+							if instBytes.opcodeByte == 64 then
+								instBytes.modRMByte = 192
+							else
+								instBytes.modRMByte = 200
+							end
+							instBytes.opcodeByte = 254
+							instBytes.modRMByte = bit.OR(instBytes.modRMByte, luasm.REGField[instFormat[_+1][1]])
+							table.insert(outputbin, instBytes.opcodeByte)
+							table.insert(outputbin, instBytes.modRMByte)
+							alreadyEncoded = true
+							break
+						end
+					elseif instFormat[_+2] and instFormat[_+2][2] == "memIMM" then
+					end
+				end
+			end
+
 			if tokenPair[2] == "REG" then
 				destBit = 2
 				local opSize = luasm.getRegSize(tokenPair[1])
@@ -477,6 +520,13 @@ function luasm.assemble(lines, mem_tokens)
 			print(tokenPair[2])
 		end
 
+		if alreadyEncoded then goto endEncode end
+
+		if not operandSize then
+			table.insert(errors, {"Operand size not specified", i})
+			break
+		end
+
 		if #errors > 0 then break end
 
 		if REG and RM then
@@ -500,8 +550,10 @@ function luasm.assemble(lines, mem_tokens)
 		if destBit then
 			instBytes.opcodeByte = bit.OR(instBytes.opcodeByte, destBit)
 		end
-		print((operandSize or "--").." "..string.format("%x", (instBytes.opcodeByte or "0")).." "..string.format("%x", (instBytes.modRMByte or "0")).." "..string.format("%x", (instBytes.displacementByte or "0")).." "..string.format("%x", (instBytes.immediateByte or "0")))
+		--print((operandSize or "--").." "..string.format("%x", (instBytes.opcodeByte or "0")).." "..string.format("%x", (instBytes.modRMByte or "0")).." "..string.format("%x", (instBytes.displacementByte or "0")).." "..string.format("%x", (instBytes.immediateByte or "0")))
 		
+		::isInc::
+
 		if instBytes.opcodeByte then table.insert(outputbin, instBytes.opcodeByte) end
 		if instBytes.modRMByte then table.insert(outputbin, instBytes.modRMByte) end
 
@@ -509,21 +561,35 @@ function luasm.assemble(lines, mem_tokens)
 			if (instBytes.displacementByte > 255 and instBytes.displacementByte < 65536) or isImmMemAddr then
 				local firstByte = bit.shl(instBytes.displacementByte, 24)
 				firstByte = bit.shr(firstByte, 24)
-				print(firstByte)
 				local secondByte = bit.shr(instBytes.displacementByte, 8)
 				secondByte = bit.shl(secondByte, 24)
 				secondByte = bit.shr(secondByte, 24)
-				print(secondByte)
 				table.insert(outputbin, firstByte)
 				table.insert(outputbin, secondByte)
 			else
 				table.insert(outputbin, instBytes.displacementByte)
 			end
-			
 		end
 
-		if instBytes.immediateByte then table.insert(outputbin, instBytes.immediateByte) end
+		if instBytes.immediateByte then 
+			if operandSize == "BYTE" then
+				local immByte = bit.shl(instBytes.immediateByte, 24)
+				immByte = bit.shr(immByte, 24)
+				table.insert(outputbin, immByte)
+			elseif operandSize == "WORD" then
+			print("what")
+				local firstByte = bit.shl(instBytes.immediateByte, 24)
+				firstByte = bit.shr(firstByte, 24)
+				local secondByte = bit.shr(instBytes.immediateByte, 8)
+				secondByte = bit.shl(secondByte, 24)
+				secondByte = bit.shr(secondByte, 24)
+				table.insert(outputbin, firstByte)
+				table.insert(outputbin, secondByte)
+			end
+		end
+		::endEncode::
 	end
+
 	local outStr = ""
 	for i,v in pairs(outputbin) do
 		local outStrHex = string.format("%x", v)
