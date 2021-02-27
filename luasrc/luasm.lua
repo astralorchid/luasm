@@ -10,7 +10,23 @@ luasm.TOKEN = {
 	xor = "OP_XOR",
 	inc = "OP_INC",
 	dec = "OP_DEC",
+
+	nop = "OP0_NOP",
+	pusha = "OP0_PUSHA",
+	popa = "OP0_POPA",
+	cmpsb = "OP0_CMPSB",
+	cmpsw = "OP0_CMPSW",
+	movsb = "OP0_MOVSB",
+	movsw = "OP0_MOVSW",
+	scasb = "OP0_SCASB",
+	scasw = "OP0_SCASW",
+	stosb = "OP0_STOSB",
+	stosw = "OP0_STOSW",
+	ret = "OP0_RET",
+	retf = "OP0_RETF",
+
 	["+"] = "PLUS",
+	[":"] = "COLON",
 	ax = "REG_AX",
 	cx = "REG_CX",
 	bx = "REG_BX",
@@ -104,17 +120,19 @@ luasm.ILLEGAL_INST_FORMAT = {
 }
 
 luasm.OPCODES = {
-OP_NOP = 144,
-OP_PUSHA = 96,
-OP_POPA = 97,
-OP_CMPSB = 166,
-OP_CMPSW = 167,
-OP_MOVSB = 164,
-OP_MOVSW = 165,
-OP_SCASB = 174,
-OP_SCASW = 175,
-OP_RET = 195,
-OP_RETF = 203,
+OP0_NOP = 144,
+OP0_PUSHA = 96,
+OP0_POPA = 97,
+OP0_CMPSB = 166,
+OP0_CMPSW = 167,
+OP0_MOVSB = 164,
+OP0_MOVSW = 165,
+OP0_SCASB = 174,
+OP0_SCASW = 175,
+OP0_STOSB = 170,
+OP0_STOSW = 171,
+OP0_RET = 195,
+OP0_RETF = 203,
 
 OP_INC = 64,
 OP_DEC = 72,
@@ -258,9 +276,44 @@ function luasm.tokenize(inputString)
 	for i,v in pairs(inputStringLines) do
 		local offset = 0
 		lines[i] = {}
+
+		if string.find(v, "+") then
+			local express = string.split(v) --prepare arithmetic/modrm expressions
+			local loopAgain = true
+			while loopAgain do
+				for index, char in pairs(express) do
+					if char == "+" and express[index+1] and express[index-1] and (express[index+1] ~= " " or express[index-1] ~= " ") then
+						if express[index+1] ~= " " then
+							table.insert(express, index+1, " ")
+						end
+						if express[index-1] ~= " " then
+							table.insert(express, index, " ")
+						end
+						loopAgain = true
+						break
+					else
+						loopAgain = false
+					end
+				end
+			end
+		end
+
+		if express then
+			v = table.concat(express)
+		end
+
+		local vLen = string.len(v)
+		if string.sub(v, vLen,vLen) == ":" then
+			vLen = string.split(v)
+			table.insert(vLen, #vLen, " ")
+			v = table.concat(vLen)
+
+		end
+
 		local inputStringTokens = string.split(v, luasm.SPACE_CHAR)
 		for o,b in pairs(inputStringTokens) do
-		
+			print(b)
+
 			b = luasm.removeComma(b)
 
 			if b == "," or b == " " or string.byte(b) == 10--[[ or string.byte(b) == 9]] or b == nil or b == "" then
@@ -282,8 +335,8 @@ function luasm.tokenize(inputString)
 					setMemToken(mem_tokens, i, o, offset)
 				end
 
-				lines[i][o-offset] = b
-				--print(b.." | "..o-offset)
+				lines[i][(o-offset)] = b
+				print(b.." | "..o-offset)
 			end
 		end
 	end
@@ -307,7 +360,8 @@ function luasm:FindToken(token)
 		return tokenImmediate, "IMM"
 	end
 
-	return nil, "Unrecognized label"
+	return token, "LABEL"
+
 end
 
 local outputbinMT = {
@@ -347,10 +401,10 @@ function luasm.assemble(lines, mem_tokens)
 		local has_SREG = false
 		local isImmMemAddr = false --bool for an immediate memory addressing operation
 		local alreadyEncoded = false --some operations have special encoding before the end of the instFormat loop
+
 		for b = 1,#line do
 			local token, tokenType = luasm:FindToken(line[b])
 			if token then
-			--print(token)
 				if mem_tokens[i] and mem_tokens[i][b] then
 					tokenType = "mem"..tokenType
 				end
@@ -385,6 +439,13 @@ function luasm.assemble(lines, mem_tokens)
 			break
 		end
 
+		--[[Pass 1]]
+		for _,tokenPair in pairs(instFormat) do
+			if tokenPair[2] == "LABEL" then
+			end
+		end
+
+		--[[Pass 2]]
 		for _,tokenPair in pairs(instFormat) do --{token, tokenType}
 
 			if tokenPair[2] == "OP" then
@@ -412,6 +473,13 @@ function luasm.assemble(lines, mem_tokens)
 					elseif instFormat[_+2] and instFormat[_+2][2] == "memIMM" then
 					end
 				end
+			end
+
+			if tokenPair[2] == "OP0" then
+				instBytes.opcodeByte = luasm.OPCODES[tokenPair[1]]
+				table.insert(outputbin, instBytes.opcodeByte)
+				alreadyEncoded = true
+				break
 			end
 
 			if tokenPair[2] == "REG" then
