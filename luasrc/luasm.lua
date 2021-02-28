@@ -10,7 +10,7 @@ luasm.TOKEN = {
 	xor = "OP_XOR",
 	inc = "OP_INC",
 	dec = "OP_DEC",
-
+	int = "OP_INT",
 	nop = "OP0_NOP",
 	pusha = "OP0_PUSHA",
 	popa = "OP0_POPA",
@@ -141,6 +141,7 @@ OP0_RETF = 203,
 
 OP_INC = 64,
 OP_DEC = 72,
+OP_INT = 205,
 
 OP_MOV = 136,
 OP_XOR = 48,
@@ -208,6 +209,11 @@ luasm.RMField = {
 	SREG_FS = 4,
 	SREG_GS = 5,
 	SREG_SS = 2,
+
+	REG_SP = 4,
+	REG_BP = 5,
+	REG_SI = 6,
+	REG_DI = 7,
 }
 
 luasm.SREG_RMField = {
@@ -312,7 +318,6 @@ function luasm.tokenize(inputString)
 			vLen = string.split(v)
 			table.insert(vLen, #vLen, " ")
 			v = table.concat(vLen)
-
 		end
 
 		local inputStringTokens = string.split(v, luasm.SPACE_CHAR)
@@ -371,18 +376,40 @@ end
 
 function luasm.assemble(lines, mem_tokens)
 	local labels = {}
+	local token_flag
+	local outputbin = {}
 
 	local outputbinMT = {
 		__newindex = function(t,k,v)
 			rawset(t, k, v)
+			if token_flag then
+				labels[token_flag] = #outputbin - 1
+				token_flag = nil
+			end
 		end
 	}
 
-	local outputbin = {}
 	setmetatable(outputbin, outputbinMT)
 
 	local errors = {}
 	local imm = nil
+
+	for i,line in pairs(lines) do
+		for b = 1,#line do
+			local token, tokenType = luasm:FindToken(line[b])
+			if tokenType == "LABEL" and line[b+1] then
+				local def, defType = luasm:FindToken(line[b+1])
+				if defType == "COLON" and not line[b-1] then
+					labels[token] = 0		
+				end
+			end
+		end
+	end
+
+	for k,v in pairs(labels) do
+		print(k.." "..v)
+	end
+
 	for i,line in pairs(lines) do
 		local instFormat = {}
 		local proper = false
@@ -402,6 +429,7 @@ function luasm.assemble(lines, mem_tokens)
 		local REG
 		local RM
 		local dualREG = false 
+		local regToken
 		local immReg --sets REG field in modRMByte if immediate operand
 		local operandSize
 		local destBit --dictates dest/src of R/M and REG fields (opcodeByte bit 1)
@@ -410,6 +438,7 @@ function luasm.assemble(lines, mem_tokens)
 		local isImmMemAddr = false --bool for an immediate memory addressing operation
 		local alreadyEncoded = false --some operations have special encoding before the end of the instFormat loop
 		local hasLabel = false
+
 		for b = 1,#line do
 			local token, tokenType = luasm:FindToken(line[b])
 			if token then
@@ -448,21 +477,28 @@ function luasm.assemble(lines, mem_tokens)
 		end
 
 		--[[Label definition pass]]
-		for _,tokenPair in pairs(instFormat) do
-			if tokenPair[2] == "LABEL" then
-				if instFormat[_+1] and (instFormat[_+1][2] == "COLON" or instFormat[_+1][2] == "DEF") and not instFormat[_-1] then
-					labels[tokenPair[1]] = 0
-					hasLabel = true
-				elseif not labels[tokenPair[1]] then
-					table.insert(errors, {"Undefined label", i})
-					break
-				end
-			end
-			
-		end
+		--for _,tokenPair in pairs(instFormat) do
+		--	if tokenPair[2] == "LABEL" then
+		--		if instFormat[_+1] and (instFormat[_+1][2] == "COLON" or instFormat[_+1][2] == "DEF") and not instFormat[_-1] then
+		--			labels[tokenPair[1]] = 0
+		--			hasLabel = true
+		--		elseif not labels[tokenPair[1]] then
+		--			table.insert(errors, {"Undefined label", i})
+		--			break
+		--		end
+		--	end
+		--end
 
 		--[[Assembler pass]]
 		for _,tokenPair in pairs(instFormat) do --{token, tokenType}
+
+			if tokenPair[2] == "LABEL" then
+				if labels[tokenPair[1]] then
+					if instFormat[_+1] and (instFormat[_+1][2] == "COLON" or instFormat[_+1][2] == "DEF") then
+						token_flag = tokenPair[1]
+					end
+				end
+			end
 
 			if tokenPair[2] == "OP" then
 				if instBytes.opcodeByte == 64 or instBytes.opcodeByte == 72 then --if inc
@@ -487,6 +523,23 @@ function luasm.assemble(lines, mem_tokens)
 							break
 						end
 					elseif instFormat[_+2] and instFormat[_+2][2] == "memIMM" then
+						--inc memory addressing alogithm here
+					end
+				elseif instBytes.opcodeByte == 205 then
+					if instFormat[_+1] and not instFormat[_+2] then
+						if instFormat[_+1][2] == "IMM" then
+							local immByte = bit.shl(instFormat[_+1][1], 24)
+							immByte = bit.shr(immByte, 24)
+							instBytes.immediateByte = immByte
+							table.insert(outputbin, instBytes.opcodeByte)
+							table.insert(outputbin, instBytes.immediateByte)
+						else
+							table.insert(errors, {"Invalid interrupt instruction", i})
+							break
+						end
+					else
+						table.insert(errors, {"Invalid interrupt instruction", i})
+						break
 					end
 				end
 			end
@@ -512,6 +565,7 @@ function luasm.assemble(lines, mem_tokens)
 
 				if REG == nil then
 					REG = luasm.REGField[tokenPair[1]]
+					regToken = tokenPair[1]
 				else
 					RM = luasm.REGField[tokenPair[1]]
 					dualREG = true
@@ -541,9 +595,20 @@ function luasm.assemble(lines, mem_tokens)
 			end
 
 			if tokenPair[2] == "IMM" then
-				instBytes.immediateByte = tokenPair[1]
-				instBytes.opcodeByte = luasm.IMM_OPCODES[opcodeToken]
-				REG = luasm.IMM_OPCODE_EXT[opcodeToken]
+				if operandSize == "BYTE" and regToken then
+					instBytes.opcodeByte = bit.OR(176, luasm.REGField[regToken])
+					local immByte = bit.shl(tokenPair[1], 24)
+					immByte = bit.shr(immByte, 24)
+					instBytes.immediateByte = immByte
+					table.insert(outputbin, instBytes.opcodeByte)
+					table.insert(outputbin, instBytes.immediateByte)
+					alreadyEncoded = true
+				else
+					instBytes.immediateByte = tokenPair[1]
+					instBytes.opcodeByte = luasm.IMM_OPCODES[opcodeToken]
+					REG = luasm.IMM_OPCODE_EXT[opcodeToken]
+					RM = luasm.RMField[instFormat[_-1][1]]
+				end
 			end
 
 			if tokenPair[2] == "memIMM" then
@@ -683,6 +748,11 @@ function luasm.assemble(lines, mem_tokens)
 		outStr = outStr..outStrHex.." "
 	end
 	print(outStr)
+
+	for k,v in pairs(labels) do
+		print(k.." "..v)
+	end
+
 	return errors
 end
 
