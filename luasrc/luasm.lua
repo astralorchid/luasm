@@ -1,230 +1,60 @@
 local luasm = {}
+
+luasm.SIZES = require("sizes")
+luasm.TOKENS = require("tokens")
+local OPCODES = require("opcodes")
+
 luasm.RETURN_CHAR = string.char(10)
 luasm.SPACE_CHAR = " "
 luasm.UNDERSCORE_CHAR = "_"
 
-luasm.TOKEN = {
-	mov = "OP_MOV",
-	add = "OP_ADD",
-	sub = "OP_SUB",
-	xor = "OP_XOR",
-	inc = "OP_INC",
-	dec = "OP_DEC",
-	int = "OP_INT",
-	nop = "OP0_NOP",
-	pusha = "OP0_PUSHA",
-	popa = "OP0_POPA",
-	cmpsb = "OP0_CMPSB",
-	cmpsw = "OP0_CMPSW",
-	movsb = "OP0_MOVSB",
-	movsw = "OP0_MOVSW",
-	scasb = "OP0_SCASB",
-	scasw = "OP0_SCASW",
-	stosb = "OP0_STOSB",
-	stosw = "OP0_STOSW",
-	ret = "OP0_RET",
-	retf = "OP0_RETF",
+luasm.REG = {
+al = 0,
+cl = 1,
+dl = 2,
+bl = 3,
+ah = 4,
+ch = 5,
+dh = 6,
+bh = 7,
 
-	["+"] = "PLUS",
-	[":"] = "COLON",
-	ax = "REG_AX",
-	cx = "REG_CX",
-	bx = "REG_BX",
-	dx = "REG_DX",
-	al = "REG_AL",
-	cl = "REG_CL",
-	bl = "REG_BL",
-	dl = "REG_DL",
-	ah = "REG_AH",
-	ch = "REG_CH",
-	bh = "REG_BH",
-	dh = "REG_DH",
-	bp = "REG_BP",
-	sp = "REG_SP",
-	di = "REG_DI",
-	si = "REG_SI",
+ax = 0,
+cx = 1,
+dx = 2,
+bx = 3,
+sp = 4,
+bp = 5,
+si = 6,
+di = 7,
 
-	cs = "SREG_CS",
-	ds = "SREG_DS",
-	es = "SREG_ES",
-	fs = "SREG_FS",
-	gs = "SREG_GS",
-	ss = "SREG_SS",
-
-	byte = "SIZE_BYTE",
-	word = "SIZE_WORD",
-	dword = "SIZE_DWORD",
-	qword = "SIZE_QWORD",
-
-	db = "DEF_BYTE",
-	dw = "DEF_WORD",
-	dd = "DEF_DWORD",
-	dq = "DEF_QWORD"
+eax = 0,
+ecx = 1,
+edx = 2,
+ebx = 3,
+esp = 4,
+ebp = 5,
+esi = 6,
+edi = 7,
 }
 
-luasm.REG_SIZES = {
-	REG_AL = "BYTE",
-	REG_CL = "BYTE",
-	REG_DL = "BYTE",
-	REG_BL = "BYTE",
-	REG_AH = "BYTE",
-	REG_CH = "BYTE",
-	REG_DH = "BYTE",
-	REG_BH = "BYTE",
-	REG_AX = "WORD",
-	REG_CX = "WORD",
-	REG_DX = "WORD",
-	REG_BX = "WORD",
-	REG_SP = "WORD",
-	REG_BP = "WORD",
-	REG_SI = "WORD",
-	REG_DI = "WORD",
+luasm.RM = {
+ ["bx+si"] = 0,
+ ["bx+di"] = 1,
+ ["bp+si"] = 2,
+ ["bp+di"] = 3,
+ si = 4,
+ di = 5,
+ bp = 6,
+ bx = 7,
 
-	SREG_CS = "WORD",
-	SREG_DS = "WORD",
-	SREG_ES = "WORD",
-	SREG_FS = "WORD",
-	SREG_GS = "WORD",
-	SREG_SS = "WORD",
-
-	SIZE_BYTE = "BYTE",
-	SIZE_WORD = "WORD",
-	SIZE_DWORD = "DWORD",
-	SIZE_QWORD = "QWORD"
-}
-
-luasm.REGField = {
-	REG_AL = 0,
-	REG_CL = 1,
-	REG_DL = 2,
-	REG_BL = 3,
-	REG_AH = 4,
-	REG_CH = 5,
-	REG_DH = 6,
-	REG_BH = 7,
-	REG_AX = 0,
-	REG_CX = 1,
-	REG_DX = 2,
-	REG_BX = 3,
-	REG_SP = 4,
-	REG_BP = 5,
-	REG_SI = 6,
-	REG_DI = 7,
-
-	SREG_DS = 3,
-	SREG_ES = 0,
-	SREG_FS = 4,
-	SREG_GS = 5,
-	SREG_SS = 2,
-
-}
-
-luasm.ILLEGAL_INST_FORMAT = {
-	["OP IMM IMM"] = true,
-	["OP IMM REG"] = true,
-}
-
-luasm.OPCODES = {
-OP0_NOP = 144,
-OP0_PUSHA = 96,
-OP0_POPA = 97,
-OP0_CMPSB = 166,
-OP0_CMPSW = 167,
-OP0_MOVSB = 164,
-OP0_MOVSW = 165,
-OP0_SCASB = 174,
-OP0_SCASW = 175,
-OP0_STOSB = 170,
-OP0_STOSW = 171,
-OP0_RET = 195,
-OP0_RETF = 203,
-
-OP_INC = 64,
-OP_DEC = 72,
-OP_INT = 205,
-
-OP_MOV = 136,
-OP_XOR = 48,
-OP_OR = 8,
-OP_ADC = 16,
-OP_SBB = 24,
-OP_AND = 32,
-OP_CMP = 56,
-OP_ADD = 0,
-OP_SUB = 40,
-}
-
-luasm.IMM_OPCODES = {
-	OP_MOV = 198,
-	OP_XOR = 128,
-	OP_CMP = 128,
-	OP_ADD = 128,
-	OP_OR = 128,
-	OP_ADC = 128,
-	OP_SBB = 128,
-	OP_AND = 128,
-	OP_SUB = 128,
-	OP_ROL = 192,
-	OP_ROR = 192,
-	OP_RCL = 192,
-	OP_RCR = 192,
-	OP_SHL = 192,
-	OP_SAL = 192,
-	OP_SHR = 192,
-	OP_SAR = 192
-}
-luasm.IMM_OPCODE_EXT = { --immediate opcode extensions for the mod r/m byte
-	OP_MOV = 0,
-	OP_XOR = 6,
-	OP_CMP = 7,
-	OP_ADD = 0,
-	OP_OR = 1,
-	OP_ADC = 2,
-	OP_SBB = 3,
-	OP_AND = 4,
-	OP_SUB = 5,
-
-	OP_ROL = 0,
-	OP_ROR = 1,
-	OP_RCL = 2,
-	OP_RCR = 3,
-	OP_SHL = 4,
-	OP_SAL = 5,
-	OP_SHR = 6,
-	OP_SAR = 7
-}
-
-luasm.RMField = {
-	REG_BX_REG_SI = 0,
-	REG_BX_REG_DI = 1,
-	REG_BP_REG_SI = 2,
-	REG_BP_REG_DI = 3,
-	REG_SI = 4,
-	REG_DI = 5,
-	REG_BP = 6,
-	REG_BX = 7,
-
-	SREG_DS = 3,
-	SREG_ES = 0,
-	SREG_FS = 4,
-	SREG_GS = 5,
-	SREG_SS = 2,
-
-	REG_SP = 4,
-	REG_BP = 5,
-	REG_SI = 6,
-	REG_DI = 7,
-}
-
-luasm.SREG_RMField = {
-	REG_AX = 0,
-	REG_CX = 1,
-	REG_DX = 2,
-	REG_BX = 3,
-	REG_SP = 4,
-	REG_BP = 5,
-	REG_SI = 6,
-	REG_DI = 7,
+ ["ebx+esi"] = 0,
+ ["ebx+edi"] = 1,
+ ["ebp+esi"] = 2,
+ ["ebp+edi"] = 3,
+ esi = 4,
+ edi = 5,
+ ebp = 6,
+ ebx = 7
 }
 function luasm.removeComma(b) --b is a token 
 	if string.len(b) > 1 then --remove commas
@@ -239,8 +69,8 @@ function luasm.removeComma(b) --b is a token
 	return b
 end
 
-function luasm.getRegSize(token)
-	for char, size in pairs(luasm.REG_SIZES) do
+function luasm.getSize(token)
+	for char, size in pairs(luasm.SIZES) do
 		if token == char then
 			return size
 		end
@@ -307,22 +137,25 @@ function luasm.tokenize(inputString)
 					end
 				end
 			end
+
+			if express then
+				v = table.concat(express)
+			print(v)
+		end
 		end
 
-		if express then
-			v = table.concat(express)
-		end
+
 
 		local vLen = string.len(v)
 		if string.sub(v, vLen,vLen) == ":" then
 			vLen = string.split(v)
 			table.insert(vLen, #vLen, " ")
 			v = table.concat(vLen)
+
 		end
 
 		local inputStringTokens = string.split(v, luasm.SPACE_CHAR)
 		for o,b in pairs(inputStringTokens) do
-			print(b)
 
 			b = luasm.removeComma(b)
 
@@ -350,410 +183,171 @@ function luasm.tokenize(inputString)
 			end
 		end
 	end
-	
+
 	return lines, mem_tokens
 end
 
 function luasm:FindToken(token)
 	local lowerToken = string.lower(token)
 	
-	for k,v in pairs(self.TOKEN) do
+	for k,v in pairs(self.TOKENS) do
 		if k == lowerToken then
-			local tokenType = string.split(v, luasm.UNDERSCORE_CHAR)
-			return v, tokenType[1]
+			return k,v
 		end
 	end
 	
 	local tokenImmediate = tonumber(token)
 	
 	if tokenImmediate then
-		return tokenImmediate, "IMM"
+		return tokenImmediate, "imm"
 	end
 
-	return token, "LABEL"
+	return token, "lbl"
 
 end
 
 function luasm.assemble(lines, mem_tokens)
-	local labels = {}
-	local token_flag
-	local outputbin = {}
-
-	local outputbinMT = {
-		__newindex = function(t,k,v)
-			rawset(t, k, v)
-			if token_flag then
-				labels[token_flag] = #outputbin - 1
-				token_flag = nil
-			end
-		end
-	}
-
-	setmetatable(outputbin, outputbinMT)
-
 	local errors = {}
-	local imm = nil
+	local tokenizedLines = {}
 
-	for i,line in pairs(lines) do
-		for b = 1,#line do
-			local token, tokenType = luasm:FindToken(line[b])
-			if tokenType == "LABEL" and line[b+1] then
-				local def, defType = luasm:FindToken(line[b+1])
-				if defType == "COLON" and not line[b-1] then
-					labels[token] = 0		
-				end
-			end
-		end
-	end
-
-	for k,v in pairs(labels) do
-		print(k.." "..v)
-	end
-
-	for i,line in pairs(lines) do
-		local instFormat = {}
-		local proper = false
-		local operands = 0
-		local opcodes = 0
-
-		local instBytes = {
-			opcodeByte = nil,
-			modRMByte = nil,--MOD dictates register addressing (RA) modes
-			displacementByte = nil,--RA displacement (if applicable)
-			immediateByte = nil--immediate value (if applicable)
-		}
-
+	tokenizedLines = luasm.createTokenizedLines(lines, tokenizedLines, mem_tokens)
+	--[[pass 1: detect instruction size / omit size tokens]]
+	tokenizedLines, errors = luasm.pass1(tokenizedLines, mem_tokens, errors)
+	--[[pass 2: assemble op dest, src instructions]]
+	tokenizedLines, errors = luasm.pass2(tokenizedLines, mem_tokens, errors)
 		
-		local opcodeToken 
-		local MOD = 0
-		local REG
-		local RM
-		local dualREG = false 
-		local regToken
-		local immReg --sets REG field in modRMByte if immediate operand
-		local operandSize
-		local destBit --dictates dest/src of R/M and REG fields (opcodeByte bit 1)
-		local sizeBit --dictates instruction size (opcodeByte bit 0)
-		local has_SREG = false
-		local isImmMemAddr = false --bool for an immediate memory addressing operation
-		local alreadyEncoded = false --some operations have special encoding before the end of the instFormat loop
-		local hasLabel = false
+	return errors, outputbin
+end
 
+function luasm.createTokenizedLines(lines, tokenizedLines, mem_tokens)
+	for i, line in pairs(lines) do
+		local tokenizedLine = {}
 		for b = 1,#line do
 			local token, tokenType = luasm:FindToken(line[b])
 			if token then
 				if mem_tokens[i] and mem_tokens[i][b] then
-					tokenType = "mem"..tokenType
+					tokenType = "m"..tokenType
 				end
+				table.insert(tokenizedLine, {token, tokenType})
+			end
+		end
+		table.insert(tokenizedLines, tokenizedLine)
+	end
 
-				table.insert(instFormat, {token, tokenType})
-				
-				if tokenType == "OP" then
-					opcodes = opcodes + 1
-					opcodeToken = token
-					instBytes.opcodeByte = luasm.OPCODES[token]
+	return tokenizedLines
+end
+
+function luasm.pass1(tokenizedLines, mem_tokens, errors)
+	for i, line in pairs(tokenizedLines) do
+		local tokenInst = {}
+		local actualInst = {}
+		for b, tokenPair in pairs(line) do
+			local isMem
+			if mem_tokens[i] and mem_tokens[i][b] then isMem = true end
+
+			local tokenSize = luasm.getSize(tokenPair[1])
+			if not actualInst[0] and not isMem then
+				if tokenSize then 
+					actualInst[0] = tokenSize
+					print(tokenSize)
 				end
-				
-				proper = true
 			else
-				table.insert(errors, {tokenType, i})
-				proper = false
-				break
-			end
-			
-		end
-
-		if opcodes > 1 then
-			table.insert(errors, {"Invalid instruction format", i})
-			break	
-		end
-		
-		--[[local instFormatLen = string.len(instFormat)
-		instFormat = string.sub(instFormat,2,instFormatLen)]]
-		
-		if luasm.ILLEGAL_INST_FORMAT[instFormat] then
-			table.insert(errors, {"Invalid instruction format", i})
-			break
-		end
-
-		--[[Label definition pass]]
-		--for _,tokenPair in pairs(instFormat) do
-		--	if tokenPair[2] == "LABEL" then
-		--		if instFormat[_+1] and (instFormat[_+1][2] == "COLON" or instFormat[_+1][2] == "DEF") and not instFormat[_-1] then
-		--			labels[tokenPair[1]] = 0
-		--			hasLabel = true
-		--		elseif not labels[tokenPair[1]] then
-		--			table.insert(errors, {"Undefined label", i})
-		--			break
-		--		end
-		--	end
-		--end
-
-		--[[Assembler pass]]
-		for _,tokenPair in pairs(instFormat) do --{token, tokenType}
-
-			if tokenPair[2] == "LABEL" then
-				if labels[tokenPair[1]] then
-					if instFormat[_+1] and (instFormat[_+1][2] == "COLON" or instFormat[_+1][2] == "DEF") then
-						token_flag = tokenPair[1]
-					end
-				end
-			end
-
-			if tokenPair[2] == "OP" then
-				if instBytes.opcodeByte == 64 or instBytes.opcodeByte == 72 then --if inc
-					if instFormat[_+1] and instFormat[_+1][2] == "REG" then
-						local incRegSize = luasm.getRegSize(instFormat[_+1][1])
-						if incRegSize == "WORD" then
-							instBytes.opcodeByte = bit.OR(instBytes.opcodeByte, luasm.REGField[instFormat[_+1][1]])
-							table.insert(outputbin, instBytes.opcodeByte)
-							alreadyEncoded = true
-							break
-						elseif incRegSize == "BYTE" then
-							if instBytes.opcodeByte == 64 then
-								instBytes.modRMByte = 192
-							else
-								instBytes.modRMByte = 200
-							end
-							instBytes.opcodeByte = 254
-							instBytes.modRMByte = bit.OR(instBytes.modRMByte, luasm.REGField[instFormat[_+1][1]])
-							table.insert(outputbin, instBytes.opcodeByte)
-							table.insert(outputbin, instBytes.modRMByte)
-							alreadyEncoded = true
-							break
-						end
-					elseif instFormat[_+2] and instFormat[_+2][2] == "memIMM" then
-						--inc memory addressing alogithm here
-					end
-				elseif instBytes.opcodeByte == 205 then
-					if instFormat[_+1] and not instFormat[_+2] then
-						if instFormat[_+1][2] == "IMM" then
-							local immByte = bit.shl(instFormat[_+1][1], 24)
-							immByte = bit.shr(immByte, 24)
-							instBytes.immediateByte = immByte
-							table.insert(outputbin, instBytes.opcodeByte)
-							table.insert(outputbin, instBytes.immediateByte)
-						else
-							table.insert(errors, {"Invalid interrupt instruction", i})
-							break
-						end
-					else
-						table.insert(errors, {"Invalid interrupt instruction", i})
-						break
-					end
-				end
-			end
-
-			if tokenPair[2] == "OP0" then
-				instBytes.opcodeByte = luasm.OPCODES[tokenPair[1]]
-				table.insert(outputbin, instBytes.opcodeByte)
-				alreadyEncoded = true
-				break
-			end
-
-			if tokenPair[2] == "REG" then
-				destBit = 2
-				local opSize = luasm.getRegSize(tokenPair[1])
-				if operandSize == nil then
-					operandSize = opSize
-				else
-					if operandSize ~= opSize then
-						table.insert(errors, {"Operand size mismatch", i})
-						break
-					end
-				end
-
-				if REG == nil then
-					REG = luasm.REGField[tokenPair[1]]
-					regToken = tokenPair[1]
-				else
-					RM = luasm.REGField[tokenPair[1]]
-					dualREG = true
-					MOD = 3
-				end
-
-				if instFormat[_-1] and instFormat[_-1][2] == "SREG" then
-					instBytes.opcodeByte = 140 --MOV SREG, REG opcode
-					destBit = 2
-					REG = luasm.REGField[instFormat[_-1][1]]
-					RM = luasm.SREG_RMField[tokenPair[1]]
-					--print(REG)
-					--print(RM)
-					MOD = 3
-					has_SREG = true
-					--print("SREG FIRST OPERAND")
-				elseif instFormat[_+1] and instFormat[_+1][2] == "SREG" then
-					instBytes.opcodeByte = 140
-					destBit = 0
-					RM = luasm.SREG_RMField[tokenPair[1]]
-					REG = luasm.REGField[instFormat[_+1][1]]
-					MOD = 3
-					has_SREG = true
-					--print("SREG 2nd OPERAND")
-				end
-
-			end
-
-			if tokenPair[2] == "IMM" then
-				if operandSize == "BYTE" and regToken then
-					instBytes.opcodeByte = bit.OR(176, luasm.REGField[regToken])
-					local immByte = bit.shl(tokenPair[1], 24)
-					immByte = bit.shr(immByte, 24)
-					instBytes.immediateByte = immByte
-					table.insert(outputbin, instBytes.opcodeByte)
-					table.insert(outputbin, instBytes.immediateByte)
-					alreadyEncoded = true
-				else
-					instBytes.immediateByte = tokenPair[1]
-					instBytes.opcodeByte = luasm.IMM_OPCODES[opcodeToken]
-					REG = luasm.IMM_OPCODE_EXT[opcodeToken]
-					RM = luasm.RMField[instFormat[_-1][1]]
-				end
-			end
-
-			if tokenPair[2] == "memIMM" then
-				if not REG then
-					destBit = 0
-				end
-				RM = 6
-				instBytes.displacementByte = tokenPair[1]
-				isImmMemAddr = true
-			end
-
-			if tokenPair[2] == "memREG" then
-				if not REG then
-					destBit = 0
-				end
-				if luasm.RMField[tokenPair[1]] then
-					if not RM then
-						RM = luasm.RMField[tokenPair[1]]
-					end
-				else
-					table.insert(errors, {"Invalid address register", i})
+				if tokenSize and tokenSize ~= actualInst[0] then
+					table.insert(errors, {"Operand size mismatch", i})
 					break
 				end
 			end
+			if tokenPair[2] ~= "size" then
+				table.insert(tokenInst, tokenPair[2])
+				table.insert(actualInst, tokenPair[1])
+			end
+		end
 
-			if tokenPair[2] == "memPLUS" and instFormat[_+1] and instFormat[_-1] then
-				if instFormat[_-1][2] == "memREG" and instFormat[_+1][2] == "memIMM" then --[bx + 1]
-					instFormat[_+1][2] = "DISP" --change token memIMM to DISP
-					instBytes.displacementByte = instFormat[_+1][1] --the actual integer
-					if dualREG then
-						MOD = 3
-					elseif instBytes.displacementByte <= 255 then
-						MOD = 1
-					elseif instBytes.displacementByte <= 65535 then
-						MOD = 2
-					end
-				elseif instFormat[_-1][2] == "memREG" and instFormat[_+1][2] == "memREG" then
-					--print(instFormat[_-1][1].."_"..instFormat[_+1][1])
-					RM = luasm.RMField[instFormat[_-1][1].."_"..instFormat[_+1][1]]
-					--print("GOT RM")
-				end
-			elseif tokenPair[2] == "memPLUS" and (not instFormat[_+1] or not instFormat[_-1]) then
-				print("Incomplete expression")
+		if not actualInst[0] then table.insert(errors, {"Undefined operand size", i}) break end
+
+		tokenizedLines[i] = {tokenInst,actualInst, {}}
+	end
+
+	return tokenizedLines, errors
+end
+
+function luasm.pass2(tokenizedLines, mem_tokens, errors)
+	for i, line in pairs(tokenizedLines) do 
+		if #line[1] == 3 then
+			local tokenInst = line[1]
+			local actualInst = line[2]
+			local bin = line[3]
+			local opcodeString = ""
+			local opcode, modrm, imm
+			local destToken = tokenInst[2]
+			local srcToken = tokenInst[3]
+			local dest = actualInst[2]
+			local src = actualInst[3]
+			local mod, reg, rm = 0
+			local size = actualInst[0]
+
+			for b, token in pairs(tokenInst) do
+				opcodeString = opcodeString..token.." "
 			end
 
-			if tokenPair[2] == "SIZE" then
-				local opSize = luasm.getRegSize(tokenPair[1])
-				if operandSize == nil then
-					operandSize = opSize
-				else
-					if operandSize ~= opSize then
-						table.insert(errors, {"Operand size mismatch", i})
+			opcode = OPCODES[opcodeString]
+			if not opcode then
+				table.insert(errors, {"Invalid instruction format", i})
+				break
+			else
+				print(opcodeString..string.format("%x", opcode))
+			end
+
+			if srcToken ~= "imm" then
+				if destToken == srcToken then 
+					mod = 3
+					reg = luasm.REG[dest]
+					rm = luasm.REG[src]
+				end
+
+				if destToken == "mimm" then
+					mod = 0
+					rm = 6
+					reg = luasm.REG[src]
+					imm = dest
+				elseif srcToken == "mimm" then
+					mod = 0
+					rm = 6
+					reg = luasm.REG[dest]
+					imm = src
+				end
+
+				if destToken == "mr16" or destToken == "mr32" then
+					reg = luasm.REG[src]
+					rm = luasm.RM[dest]
+					if not rm then
+						table.insert(errors, {"Invalid memory addressing register", i})
+						break
+					end
+				elseif srcToken == "mr16" or srcToken == "mr32" then
+					reg = luasm.REG[dest]
+					rm = luasm.RM[src]
+					if not rm then
+						table.insert(errors, {"Invalid memory addressing register", i})
 						break
 					end
 				end
-			end
-
-			print(tokenPair[2])
-		end
-
-		if alreadyEncoded then goto endEncode end
-
-		if not operandSize and instBytes.opcodeByte then
-			table.insert(errors, {"Operand size not specified", i})
-			break
-		end
-
-		if #errors > 0 then break end
-
-		if REG and RM then
-			instBytes.modRMByte = MOD
-			instBytes.modRMByte = bit.shl(instBytes.modRMByte, 3)
-			instBytes.modRMByte = bit.OR(instBytes.modRMByte, REG)
-			instBytes.modRMByte = bit.shl(instBytes.modRMByte, 3)
-			instBytes.modRMByte = bit.OR(instBytes.modRMByte, RM)
-		end
-
-		if operandSize == "BYTE" or has_SREG then
-			sizeBit = 0
-		elseif operandSize == "WORD" then 
-			sizeBit = 1
-		end
-
-		if sizeBit then
-			instBytes.opcodeByte = bit.OR(instBytes.opcodeByte, sizeBit)
-		end
-
-		if destBit then
-			instBytes.opcodeByte = bit.OR(instBytes.opcodeByte, destBit)
-		end
-		--print((operandSize or "--").." "..string.format("%x", (instBytes.opcodeByte or "0")).." "..string.format("%x", (instBytes.modRMByte or "0")).." "..string.format("%x", (instBytes.displacementByte or "0")).." "..string.format("%x", (instBytes.immediateByte or "0")))
-		
-		::isInc::
-
-		if instBytes.opcodeByte then table.insert(outputbin, instBytes.opcodeByte) end
-		if instBytes.modRMByte then table.insert(outputbin, instBytes.modRMByte) end
-
-		if instBytes.displacementByte then
-			if (instBytes.displacementByte > 255 and instBytes.displacementByte < 65536) or isImmMemAddr then
-				local firstByte = bit.shl(instBytes.displacementByte, 24)
-				firstByte = bit.shr(firstByte, 24)
-				local secondByte = bit.shr(instBytes.displacementByte, 8)
-				secondByte = bit.shl(secondByte, 24)
-				secondByte = bit.shr(secondByte, 24)
-				table.insert(outputbin, firstByte)
-				table.insert(outputbin, secondByte)
+				modrm = luasm.getModRM(mod, reg, rm)
+				print(string.format("%x", modrm))
 			else
-				table.insert(outputbin, instBytes.displacementByte)
+				--immediate handling
 			end
 		end
-
-		if instBytes.immediateByte then 
-			if operandSize == "BYTE" then
-				local immByte = bit.shl(instBytes.immediateByte, 24)
-				immByte = bit.shr(immByte, 24)
-				table.insert(outputbin, immByte)
-			elseif operandSize == "WORD" then
-			print("what")
-				local firstByte = bit.shl(instBytes.immediateByte, 24)
-				firstByte = bit.shr(firstByte, 24)
-				local secondByte = bit.shr(instBytes.immediateByte, 8)
-				secondByte = bit.shl(secondByte, 24)
-				secondByte = bit.shr(secondByte, 24)
-				table.insert(outputbin, firstByte)
-				table.insert(outputbin, secondByte)
-			end
-		end
-		::endEncode::
 	end
+	return tokenizedLines, errors
+end
 
-	local outStr = ""
-	for i,v in pairs(outputbin) do
-		local outStrHex = string.format("%x", v)
-		if string.len(outStrHex) < 2 then
-			outStrHex = "0"..outStrHex
-		end
-		outStr = outStr..outStrHex.." "
-	end
-	print(outStr)
-
-	for k,v in pairs(labels) do
-		print(k.." "..v)
-	end
-
-	return errors
+function luasm.getModRM(mod, reg, rm)
+	local modrm = bit.shl(mod, 3)
+	modrm = bit.OR(modrm, reg)
+	modrm = bit.shl(modrm, 3)
+	modrm = bit.OR(modrm, rm)
+	return modrm
 end
 
 return luasm

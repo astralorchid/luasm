@@ -1,4 +1,1 @@
-start:
-	mov ax, ax
-start2:
-	xor bx, bx
+mov byte [0x0], [0x0]
