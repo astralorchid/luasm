@@ -35,6 +35,12 @@ esp = 4,
 ebp = 5,
 esi = 6,
 edi = 7,
+
+ es = 0,
+ ds = 3,
+ fs = 4,
+ gs = 5,
+ ss = 2
 }
 
 luasm.RM = {
@@ -54,7 +60,8 @@ luasm.RM = {
  esi = 4,
  edi = 5,
  ebp = 6,
- ebx = 7
+ ebx = 7,
+
 }
 function luasm.removeComma(b) --b is a token 
 	if string.len(b) > 1 then --remove commas
@@ -291,11 +298,12 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 			end
 
 			opcode = OPCODES[opcodeString]
+			print(opcodeString)
 			if not opcode then
 				table.insert(errors, {"Invalid instruction format", i})
 				break
 			else
-				print(opcodeString..string.format("%x", opcode))
+				table.insert(bin, opcode)
 			end
 
 			if srcToken ~= "imm" then
@@ -332,11 +340,34 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 						break
 					end
 				end
+
+				if srcToken == "sreg" then
+					if destToken == "r16" or destToken == "r32" then
+						reg = luasm.REG[src]
+						rm = luasm.REG[dest]
+						mod = 3
+					end
+				elseif destToken == "sreg" then
+					if srcToken == "r16" or srcToken == "r32" then
+						reg = luasm.REG[dest]
+						rm = luasm.REG[src]
+						mod = 3
+					end
+				end
+
 				modrm = luasm.getModRM(mod, reg, rm)
-				print(string.format("%x", modrm))
+				table.insert(bin, modrm)
 			else
 				--immediate handling
 			end
+
+			local binStr = ""
+			for ind, bi in pairs(bin) do
+			local hex = string.format("%x", bi)
+			if string.len(hex) == 1 then hex = "0"..hex end
+				binStr = binStr..hex.." "
+			end
+			print(binStr)
 		end
 	end
 	return tokenizedLines, errors

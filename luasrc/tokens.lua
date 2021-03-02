@@ -29,8 +29,25 @@ local tokens = {
 	ebp = "r32",
 	esp = "r32",
 
+	ds = "sreg",
+	es = "sreg",
+	fs = "sreg",
+	gs = "sreg",
+	ss = "sreg",
+
+
 	mov = "mov",
 	add = "add",
+	["or"] = "or",
+	adc = "adc",
+	sbb = "sbb",
+	["and"] = "and",
+	sub = "sub",
+	xor = "xor",
+	cmp = "cmp",
+	test = "test",
+	xchg = "xchg",
+	lea = "lea",
 
 	["+"] = "+",
 

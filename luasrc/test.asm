@@ -1,1 +1,10 @@
-mov byte [0x0], [0x0]
+mov ds, ax
+mov es, ax
+mov fs, ax
+mov gs, ax
+mov ss, ax
+mov ax, ds
+mov ax, es
+mov ax, fs
+mov ax, gs
+mov ax, ss
