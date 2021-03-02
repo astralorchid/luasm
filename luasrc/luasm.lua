@@ -333,8 +333,7 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 			--print(actualString)
 			--print(opcodeString)
 			if not opcode then
-				table.insert(errors, {"Invalid instruction format", i})
-				print("Bad string: "..opcodeString)
+				table.insert(errors, {"Invalid token / instruction format", i})
 				break
 			else
 				table.insert(bin, opcode)
@@ -517,6 +516,19 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 				binStr = binStr..hex.." "
 			end
 			print(binStr)
+		elseif #line[1] == 1 then
+			local tokenInst = line[1]
+			local opcode
+			local bin = line[3]
+
+			opcode = OPCODES[tokenInst[1]]
+			if not opcode then
+				table.insert(errors, {"Invalid token / instruction format", i})
+				break
+			else
+				table.insert(bin, opcode)
+			end
+			print(string.format("%x", bin[1]))
 		end
 	end
 	return tokenizedLines, errors

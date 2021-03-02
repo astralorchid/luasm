@@ -48,7 +48,7 @@ local tokens = {
 	test = "test",
 	xchg = "xchg",
 	lea = "lea",
-
+	nop = "nop",
 	["+"] = "+",
 
 	byte = "size",

@@ -1,1 +1,3 @@
-mov ax, ax
+mov ax, 0xb800
+mov ss, ax
+mov byte [0x0], 0x65
