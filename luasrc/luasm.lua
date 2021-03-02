@@ -65,7 +65,14 @@ luasm.RM = {
 }
 
 luasm.IMM_OPCODE_EXT = {
-
+	add = 0,
+	["or"] = 1,
+	adc = 2,
+	sbb = 3,
+	["and"] = 4,
+	sub = 5,
+	xor = 6,
+	cmp = 7
 }
 function luasm.removeComma(b) --b is a token 
 	if string.len(b) > 1 then --remove commas
@@ -422,12 +429,74 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 				end
 			else
 				if destToken == "mimm" then
-				mod = 0
-				reg = 6
-				rm = 0
+					mod = 0
+					rm = 6
+					reg = luasm.IMM_OPCODE_EXT[actualInst[1]]
+					disp = dest
+					imm = src
+					modrm = luasm.getModRM(mod, reg, rm)
+					table.insert(bin, modrm)
+
+					local firstByte = bit.shl(disp, 24)
+					firstByte = bit.shr(firstByte, 24)
+					local secondByte = bit.shl(disp, 16)
+					secondByte = bit.shr(secondByte, 24)
+					table.insert(bin, firstByte)
+					table.insert(bin, secondByte)
+
+					if size == "byte" then
+						imm = bit.shl(imm, 24)
+						imm = bit.shr(imm, 24)
+						table.insert(bin, imm)
+					elseif size == "word" then
+						bin[1] = bit.OR(bin[1], 1) --set opcode size bit
+						local firstByte = bit.shl(imm, 24)
+						firstByte = bit.shr(firstByte, 24)
+						local secondByte = bit.shl(imm, 16)
+						secondByte = bit.shr(secondByte, 24)
+						table.insert(bin, firstByte)
+						table.insert(bin, secondByte)
+					end
+
 				elseif destToken == "r8" then
+					if actualInst[1] == "mov" then
+						imm = src
+						bin[1] = bit.OR(bin[1], luasm.REG[dest]) --add reg to opcode
+						imm = bit.shl(imm, 24)
+						imm = bit.shr(imm, 24)
+						table.insert(bin, imm)
+					end
 				elseif destToken == "r16" then
+					if actualInst[1] == "mov" then
+						imm = src
+						bin[1] = bit.OR(bin[1], luasm.REG[dest]) --add reg to opcode
+						local firstByte = bit.shl(imm, 24)
+						firstByte = bit.shr(firstByte, 24)
+						local secondByte = bit.shl(imm, 16)
+						secondByte = bit.shr(secondByte, 24)
+						table.insert(bin, firstByte)
+						table.insert(bin, secondByte)
+					end
 				elseif destToken == "mr16" then
+					mod = 0
+					reg = 0
+					rm = luasm.RM[dest]
+					imm = src
+					modrm = luasm.getModRM(mod, reg, rm)
+					table.insert(bin, modrm)
+					if size == "byte" then
+						imm = bit.shl(imm, 24)
+						imm = bit.shr(imm, 24)
+						table.insert(bin, imm)
+					elseif size == "word" then
+						bin[1] = bit.OR(bin[1], 1) --set opcode size bit
+						local firstByte = bit.shl(imm, 24)
+						firstByte = bit.shr(firstByte, 24)
+						local secondByte = bit.shl(imm, 16)
+						secondByte = bit.shr(secondByte, 24)
+						table.insert(bin, firstByte)
+						table.insert(bin, secondByte)
+					end
 				end
 			end
 
