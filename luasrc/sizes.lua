@@ -30,6 +30,13 @@ local SIZES = {
 	edi = "dword",
 	ebp = "dword",
 	esp = "dword",
+
+	ds = "word",
+	es = "word",
+	fs = "word",
+	gs = "word",
+	ss = "word",
+
 }
 
 return SIZES

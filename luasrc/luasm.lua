@@ -63,6 +63,10 @@ luasm.RM = {
  ebx = 7,
 
 }
+
+luasm.IMM_OPCODE_EXT = {
+
+}
 function luasm.removeComma(b) --b is a token 
 	if string.len(b) > 1 then --remove commas
 	local first = string.sub(b,1,1)
@@ -270,8 +274,21 @@ function luasm.pass1(tokenizedLines, mem_tokens, errors)
 			end
 		end
 
-		if not actualInst[0] then table.insert(errors, {"Undefined operand size", i}) break end
-
+		if not actualInst[0] then
+			if actualInst[3] then
+				local operand2Size = luasm.getSize(actualInst[3])
+				if operand2Size then
+					actualInst[0] = operand2Size
+					size = actualInst[0]
+				else
+					table.insert(errors, {"Undefined operand size", i}) 
+					break
+				end
+			else
+				table.insert(errors, {"Undefined operand size", i}) 
+				break
+			end
+		end
 		tokenizedLines[i] = {tokenInst,actualInst, {}}
 	end
 
@@ -285,14 +302,14 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 			local actualInst = line[2]
 			local bin = line[3]
 			local opcodeString = ""
-			local opcode, modrm, imm
+			local opcode, modrm, disp, imm
 			local destToken = tokenInst[2]
 			local srcToken = tokenInst[3]
 			local dest = actualInst[2]
 			local src = actualInst[3]
 			local mod, reg, rm = 0
 			local size = actualInst[0]
-
+			local modrmReady = false
 			for b, token in pairs(tokenInst) do
 				opcodeString = opcodeString..token.." "
 			end
@@ -307,38 +324,12 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 			end
 
 			if srcToken ~= "imm" then
-				if destToken == srcToken then 
+
+				if destToken == srcToken and not modrm then 
 					mod = 3
 					reg = luasm.REG[dest]
 					rm = luasm.REG[src]
-				end
-
-				if destToken == "mimm" then
-					mod = 0
-					rm = 6
-					reg = luasm.REG[src]
-					imm = dest
-				elseif srcToken == "mimm" then
-					mod = 0
-					rm = 6
-					reg = luasm.REG[dest]
-					imm = src
-				end
-
-				if destToken == "mr16" or destToken == "mr32" then
-					reg = luasm.REG[src]
-					rm = luasm.RM[dest]
-					if not rm then
-						table.insert(errors, {"Invalid memory addressing register", i})
-						break
-					end
-				elseif srcToken == "mr16" or srcToken == "mr32" then
-					reg = luasm.REG[dest]
-					rm = luasm.RM[src]
-					if not rm then
-						table.insert(errors, {"Invalid memory addressing register", i})
-						break
-					end
+					modrm = luasm.getModRM(mod, reg, rm)
 				end
 
 				if srcToken == "sreg" then
@@ -346,19 +337,98 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 						reg = luasm.REG[src]
 						rm = luasm.REG[dest]
 						mod = 3
+						modrm = luasm.getModRM(mod, reg, rm)
+					elseif destToken == "mimm" then
+						disp = dest
+						rm = 6
+						reg = luasm.REG[src]
+						modrm = luasm.getModRM(mod, reg, rm)
 					end
 				elseif destToken == "sreg" then
 					if srcToken == "r16" or srcToken == "r32" then
 						reg = luasm.REG[dest]
 						rm = luasm.REG[src]
 						mod = 3
+						modrm = luasm.getModRM(mod, reg, rm)
+					elseif srcToken == "mimm" then
+						disp = src
+						rm = 6
+						reg = luasm.REG[dest]
+						modrm = luasm.getModRM(mod, reg, rm)
 					end
 				end
 
-				modrm = luasm.getModRM(mod, reg, rm)
+				if not modrm then
+					if destToken == "mimm" then
+						mod = 0
+						rm = 6
+						reg = luasm.REG[src]
+						disp = dest
+						modrm = luasm.getModRM(mod, reg, rm)
+					elseif srcToken == "mimm" then
+						mod = 0
+						rm = 6
+						reg = luasm.REG[dest]
+						disp = src
+						modrm = luasm.getModRM(mod, reg, rm)
+					end
+				end
+
+				if not modrm then
+					if destToken == "mr16" or destToken == "mr32" then
+						reg = luasm.REG[src]
+						rm = luasm.RM[dest]
+						mod = 0
+						if not rm then
+							table.insert(errors, {"Invalid memory addressing register", i})
+							break
+						else
+							modrm = luasm.getModRM(mod, reg, rm)
+						end
+					elseif srcToken == "mr16" or srcToken == "mr32" then
+						reg = luasm.REG[dest]
+						rm = luasm.RM[src]
+						mod = mod
+						if not rm then
+							table.insert(errors, {"Invalid memory addressing register", i})
+							break
+						else
+							modrm = luasm.getModRM(mod, reg, rm)
+						end
+					end
+				end
+
 				table.insert(bin, modrm)
+
+				if disp then
+					if mod == 0 and rm == 6 then
+						local firstByte = bit.shl(disp, 24)
+						firstByte = bit.shr(firstByte, 24)
+						local secondByte = bit.shl(disp, 16)
+						secondByte = bit.shr(secondByte, 24)
+						table.insert(bin, firstByte)
+						table.insert(bin, secondByte)
+					elseif mod == 1 then
+						disp = bit.shl(disp, 24)
+						disp = bit.shr(disp, 24)
+						table.insert(bin, disp)
+					elseif mod == 2 then
+						local firstByte = bit.shl(disp, 24)
+						firstByte = bit.shr(firstByte, 24)
+						local secondByte = bit.shl(disp, 16)
+						secondByte = bit.shr(secondByte, 24)
+						table.insert(bin, secondByte)
+					end
+				end
 			else
-				--immediate handling
+				if destToken == "mimm" then
+				mod = 0
+				reg = 6
+				rm = 0
+				elseif destToken == "r8" then
+				elseif destToken == "r16" then
+				elseif destToken == "mr16" then
+				end
 			end
 
 			local binStr = ""
