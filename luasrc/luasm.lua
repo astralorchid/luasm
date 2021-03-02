@@ -265,11 +265,16 @@ function luasm.pass1(tokenizedLines, mem_tokens, errors)
 
 			local tokenSize = luasm.getSize(tokenPair[1])
 			if not actualInst[0] and not isMem then
-				if tokenSize then 
+				if tokenSize then
 					actualInst[0] = tokenSize
 					print(tokenSize)
 				end
 			else
+				if isMem and not actualInst[0] then
+					actualInst[0] = "byte"
+					tokenSize = "byte"
+				end
+
 				if tokenSize and tokenSize ~= actualInst[0] then
 					table.insert(errors, {"Operand size mismatch", i})
 					break

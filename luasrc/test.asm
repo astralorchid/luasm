@@ -1,2 +1,2 @@
-mov byte [bx], 5
-mov byte [si], 5
+mov [bx], 5
+mov [si], 5
