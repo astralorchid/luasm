@@ -166,7 +166,55 @@ local opcodes = {
 
 ["mov mimm imm "] = 0xC6,
 ["mov mr16 imm "] = 0xC6,
-["mov mr32 imm "] = 0xC6
+["mov mr32 imm "] = 0xC6,
+
+["int imm "] = 0xCD,
+
+["push sreg "] = 0x0,
+["pop sreg"] = 0x0,
+
+["inc r16 "] = 0x40,
+["inc r32 "] = 0x40,
+["dec r16 "] = 0x48,
+["dec r32 "] = 0x48,
+
+["push r16 "] = 0x50,
+["push r32 "] = 0x50,
+["pop r16 "] = 0x58,
+["pop r32 "] = 0x58,
+
+["push imm "] = 0x68,
+
+["jo imm "] = 0x70,
+["jno imm "] = 0x71,
+["jb imm "] = 0x72,
+["jnae imm "] = 0x72,
+["jc imm "] = 0x72,
+["jnb imm "] = 0x73,
+["jae imm "] = 0x73,
+["jnc imm "] = 0x73,
+["jz imm "] = 0x74,
+["je imm "] = 0x74,
+["jnz imm "] = 0x75,
+["jne imm "] = 0x75,
+["jbe imm "] = 0x76,
+["jna imm "] = 0x76,
+["jnbe imm "] = 0x77,
+["ja imm "] = 0x77,
+["js imm "] = 0x78,
+["jns imm "] = 0x79,
+["jp imm "] = 0x7A,
+["jpe imm "] = 0x7A,
+["jnp imm "] = 0x7B,
+["jpo imm "] = 0x7B,
+["jl imm "] = 0x7C,
+["jnge imm "] = 0x7C,
+["jnl imm "] = 0x7D,
+["jge imm "] = 0x7D,
+["jle imm "] = 0x7E,
+["jng imm "] = 0x7E,
+["jnle imm "] = 0x7F,
+["jg imm "] = 0x7F,
 }
 
 return opcodes

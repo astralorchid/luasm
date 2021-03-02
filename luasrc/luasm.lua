@@ -158,7 +158,7 @@ function luasm.tokenize(inputString)
 
 			if express then
 				v = table.concat(express)
-			print(v)
+			--print(v)
 		end
 		end
 
@@ -197,7 +197,7 @@ function luasm.tokenize(inputString)
 				end
 
 				lines[i][(o-offset)] = b
-				print(b.." | "..o-offset)
+				--print(b.." | "..o-offset)
 			end
 		end
 	end
@@ -266,7 +266,7 @@ function luasm.pass1(tokenizedLines, mem_tokens, errors)
 			if not actualInst[0] and not isMem then
 				if tokenSize then
 					actualInst[0] = tokenSize
-					print(tokenSize)
+					--print(tokenSize)
 				end
 			else
 				if isMem and not actualInst[0] then
@@ -330,8 +330,8 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 				actualString = actualString..token.." "
 			end
 			opcode = OPCODES[opcodeString]
-			print(actualString)
-			print(opcodeString)
+			--print(actualString)
+			--print(opcodeString)
 			if not opcode then
 				table.insert(errors, {"Invalid instruction format", i})
 				print("Bad string: "..opcodeString)
