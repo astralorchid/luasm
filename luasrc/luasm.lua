@@ -219,7 +219,6 @@ function luasm:FindToken(token)
 	if tokenImmediate then
 		return tokenImmediate, "imm"
 	end
-
 	return token, "lbl"
 
 end
@@ -297,8 +296,8 @@ function luasm.pass1(tokenizedLines, mem_tokens, errors)
 					break
 				end
 			else
-				table.insert(errors, {"Undefined operand size", i}) 
-				break
+				--table.insert(errors, {"Undefined operand size", i}) 
+				--break
 			end
 		end
 		tokenizedLines[i] = {tokenInst,actualInst, {}}
@@ -314,6 +313,7 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 			local actualInst = line[2]
 			local bin = line[3]
 			local opcodeString = ""
+			local actualString = ""
 			local opcode, modrm, disp, imm
 			local destToken = tokenInst[2]
 			local srcToken = tokenInst[3]
@@ -322,14 +322,19 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 			local mod, reg, rm = 0
 			local size = actualInst[0]
 			local modrmReady = false
+
 			for b, token in pairs(tokenInst) do
 				opcodeString = opcodeString..token.." "
 			end
-
+			for b, token in pairs(actualInst) do
+				actualString = actualString..token.." "
+			end
 			opcode = OPCODES[opcodeString]
+			print(actualString)
 			print(opcodeString)
 			if not opcode then
 				table.insert(errors, {"Invalid instruction format", i})
+				print("Bad string: "..opcodeString)
 				break
 			else
 				table.insert(bin, opcode)
