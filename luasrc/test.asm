@@ -1,4 +1,7 @@
-start:
-mov ax, ax
+start: xor ax, ax
 start2:
-	xor ax, bx
+    mov ds, ax
+    mov es, ax
+    mov ss, ax
+    xor bp, bp
+    xor sp, sp

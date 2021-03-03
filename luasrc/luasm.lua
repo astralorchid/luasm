@@ -36,11 +36,11 @@ ebp = 5,
 esi = 6,
 edi = 7,
 
- es = 0,
- ds = 3,
- fs = 4,
- gs = 5,
- ss = 2
+es = 0,
+ds = 3,
+fs = 4,
+gs = 5,
+ss = 2
 }
 
 luasm.RM = {
@@ -165,20 +165,18 @@ function luasm.tokenize(inputString, errors)
 		--this allows proc labels to be placed on the same line as something
 		local spl = string.split(v, " ")
 		for o,s in pairs(spl) do
-		local vLen = string.len(s)
-
-		if string.sub(s, vLen,vLen) == ":" then
-			if o <= 2 then
-				vLen = string.split(s)
-				table.insert(vLen, #vLen, " ")
-				s = table.concat(vLen)
-				spl[o] = s
-				print("F")
-			else
-				table.insert(errors, {"Invalid instruction format", i})
-			break
+			local vLen = string.len(s)
+			if string.sub(s, vLen,vLen) == ":" then
+				if o <= 2 then
+					vLen = string.split(s)
+					table.insert(vLen, #vLen, " ")
+					s = table.concat(vLen)
+					spl[o] = s
+				else
+					table.insert(errors, {"Invalid instruction format", i})
+				break
+				end
 			end
-		end
 		end
 		local newV = ""
 		for i, v in pairs(spl) do
@@ -335,13 +333,24 @@ function luasm.getLabels(tokenizedLines, mem_tokens, errors)
 	local newTokenizedLines = {}
 	local offset = 0
 	for i, line in pairs(tokenizedLines) do
+		local hasLabelDef
+		local aloneOnLine
+		labels, hasLabelDef, aloneOnLine, newTokenizedLines, offset, errors = luasm.getLabelOnLine(i, line, labels, tokenizedLines, newTokenizedLines, offset, errors)
+	end
+		for k,v in pairs(labels) do
+			print(k.." "..v)
+		end
+	return labels, newTokenizedLines, errors
+end
+
+function luasm.getLabelOnLine(i, line, labels, tokenizedLines, newTokenizedLines, offset, errors)
 		newTokenizedLines[i-offset] = line
 
 		local tokenInst = line[1]
-
-		setmetatable(tokenInst, cloneTable)
-
 		local actualInst = line[2]
+		setmetatable(tokenInst, cloneTable)
+		setmetatable(actualInst, cloneTable)
+
 		local bin = line[3]
 		local nextLine = tokenizedLines[i+1]
 		local nextBin
@@ -351,34 +360,25 @@ function luasm.getLabels(tokenizedLines, mem_tokens, errors)
 		end
 
 		local newTokenInst = tokenInst()
-		local tokensToRemove = 0
+		local newActualInst = actualInst()
 
+		local tokensToRemove = 0
+		local aloneOnLine = false
+		local hasLabelDef = false
 		for b, token in pairs(tokenInst) do
 			local actual = actualInst[b]
 			local nextToken = tokenInst[b+1]
+			local prevToken = tokenInst[b-1]
 			local nextActual = actualInst[b+1]
-
-			if b == 1 and nextToken then
+			local prevActual = actualInst[b-1]
+			if b <= 2 and nextToken then
 				if nextToken == ":" then
 					if token == "lbl" then
+
 						tokensToRemove = 2
 						if not labels[actual] then
 							labels[actual] = 0
-							if tokenizedLines[i-1] and tokenizedLines[i-1][3][0] then
-								for k,v in pairs(tokenizedLines[i-1][3][0]) do --prev line bin table
-									nextBin[0][k] = true
-								end
-							end
-							if actualInst[b+2] then
-								bin[0][actual] = true
-							else
-								bin[0] = nil --check if bin[0] == nil to set label flag
-								print("Set label offset to line "..i+1)
-							end
-							if nextBin and not actualInst[b+2] then
-								nextBin[0][actual] = true
-							end
-							--newTokenInst[b] = nil
+							hasLabelDef = true
 						else
 							table.insert(errors, {"Label already used ("..actual..")", i}) 
 							break
@@ -391,32 +391,55 @@ function luasm.getLabels(tokenizedLines, mem_tokens, errors)
 				elseif nextToken == "equ" then
 					--preprocess labels
 				end
+			elseif b == 2 and not nextToken then
+				aloneOnLine = true
+			--label proc def alone on line
+				if token == ":" then --check if label
+					if prevToken == "lbl" then
+					tokensToRemove = 2
+						if not labels[prevActual] then --create label
+							labels[prevActual] = 0
+							hasLabelDef = true
+						else
+							--table.insert(errors, {"Label already used ("..prevActual..")", i}) 
+							--break
+						end
+					else
+						table.insert(errors, {"Invalid label ("..prevActual..")", i}) 
+						break
+					end
+				end
+				
+			else
+				if token == ":" or token == "def" or token == "equ" then
+						table.insert(errors, {"Invalid label ("..actual..")", i}) 
+						break
+				end
 			end
 		end
 
 		if tokensToRemove > 0 then
-			for rem = 1,tokensToRemove do
-				newTokenInst[rem] = nil
+			for rem = 1,tokensToRemove do --remove label def tokens from line
+				table.remove(newTokenInst,1)
+				table.remove(newActualInst,1)
 			end
 		end
-		for i,v in pairs(newTokenInst) do
-			print(v)
-		end
-		if #newTokenInst > 0 then
+		--for i,v in pairs(newTokenInst) do
+			--print(v.." new")
+		--end
+		if #newTokenInst > 0 then --remove line if empty
 			newTokenizedLines[i-offset][1] = newTokenInst
+			newTokenizedLines[i-offset][2] = newActualInst
 		else
 			offset = offset + 1
 		end
-	end
-		for k,v in pairs(labels) do
-			print(k.." "..v)
-		end
-	return labels, newTokenizedLines, errors
+return labels, hasLabelDef, aloneOnLine, newTokenizedLines, offset, errors
 end
 
 function luasm.pass2(tokenizedLines, mem_tokens, errors)
 	for i, line in pairs(tokenizedLines) do 
-		if #line[1] == 3 then
+
+			if #line[1] == 3 then
 			local tokenInst = line[1]
 			local actualInst = line[2]
 			local bin = line[3]
@@ -430,6 +453,10 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 			local mod, reg, rm = 0
 			local size = actualInst[0]
 			local modrmReady = false
+
+			for o, b in pairs(bin[0]) do
+				print(o..": ")
+			end
 
 			for b, token in pairs(tokenInst) do
 				opcodeString = opcodeString..token.." "
@@ -470,7 +497,9 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 					end
 				elseif destToken == "sreg" then
 					if srcToken == "r16" or srcToken == "r32" then
+						
 						reg = luasm.REG[dest]
+						print(tokenInst[2])
 						rm = luasm.REG[src]
 						mod = 3
 						modrm = luasm.getModRM(mod, reg, rm)
@@ -610,6 +639,7 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 			end
 			print(binStr)
 
+		elseif #line[2] == 2 then 
 		elseif #line[1] == 1 then
 			local tokenInst = line[1]
 			local opcode
