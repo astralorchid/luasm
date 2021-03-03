@@ -226,11 +226,12 @@ end
 function luasm.assemble(lines, mem_tokens)
 	local errors = {}
 	local tokenizedLines = {}
-
+	local labels = {}
 	tokenizedLines = luasm.createTokenizedLines(lines, tokenizedLines, mem_tokens)
 	--[[pass 1: detect instruction size / omit size tokens]]
-	tokenizedLines, errors = luasm.pass1(tokenizedLines, mem_tokens, errors)
-	--[[pass 2: assemble op dest, src instructions]]
+	tokenizedLines, errors = luasm.setInstructionSizes(tokenizedLines, mem_tokens, errors)
+	labels, tokenizedLines, errors = luasm.getLabels(tokenizedLines, mem_tokens, errors)
+	--[[pass 2: assemble]]
 	tokenizedLines, errors = luasm.pass2(tokenizedLines, mem_tokens, errors)
 		
 	return errors, outputbin
@@ -254,7 +255,7 @@ function luasm.createTokenizedLines(lines, tokenizedLines, mem_tokens)
 	return tokenizedLines
 end
 
-function luasm.pass1(tokenizedLines, mem_tokens, errors)
+function luasm.setInstructionSizes(tokenizedLines, mem_tokens, errors)
 	for i, line in pairs(tokenizedLines) do
 		local tokenInst = {}
 		local actualInst = {}
@@ -274,7 +275,8 @@ function luasm.pass1(tokenizedLines, mem_tokens, errors)
 					tokenSize = "byte"
 				end
 
-				if tokenSize and tokenSize ~= actualInst[0] then
+				if tokenSize and tokenSize ~= actualInst[0] and not isMem then
+					print(actualInst[0])
 					table.insert(errors, {"Operand size mismatch", i})
 					break
 				end
@@ -300,10 +302,93 @@ function luasm.pass1(tokenizedLines, mem_tokens, errors)
 				--break
 			end
 		end
-		tokenizedLines[i] = {tokenInst,actualInst, {}}
+		tokenizedLines[i] = {tokenInst,actualInst, {[0] = {}}}
 	end
 
 	return tokenizedLines, errors
+end
+
+local cloneTable = {__call = function(t)
+	local nt = {}
+		for k,v in pairs(t) do
+			nt[k] = v
+		end
+	return t
+	end}
+
+function luasm.getLabels(tokenizedLines, mem_tokens, errors)
+
+	local labels = {}
+	local newTokenizedLines = {}
+	local offset = 0
+	for i, line in pairs(tokenizedLines) do
+		newTokenizedLines[i-offset] = line
+
+		local tokenInst = line[1]
+
+		setmetatable(tokenInst, cloneTable)
+
+		local actualInst = line[2]
+		local bin = line[3]
+		local nextLine = tokenizedLines[i+1]
+		local nextBin
+
+		if nextLine then
+			nextBin = nextLine[3]
+		end
+
+		local newTokenInst = tokenInst()
+		local tokensToRemove = 0
+
+		for b, token in pairs(tokenInst) do
+			local actual = actualInst[b]
+			local nextToken = tokenInst[b+1]
+			local nextActual = actualInst[b+1]
+			local removeToken = false
+
+			if b == 1 and nextToken then
+				if nextToken == ":" then
+					if token == "lbl" then
+						if not labels[actual] then
+							labels[actual] = 0
+							if tokenizedLines[i-1] and tokenizedLines[i-1][3][0] then
+								for k,v in pairs(tokenizedLines[i-1][3][0]) do --prev line bin table
+									nextBin[0][k] = true
+								end
+							end
+							bin[0] = nil --check if bin[0] == nil to set label flag
+							nextBin[0][actual] = true
+							--newTokenInst[b] = nil
+						else
+							table.insert(errors, {"Label already used ("..actual..")", i}) 
+							break
+						end
+					else
+						table.insert(errors, {"Invalid label ("..actual..")", i}) 
+						break
+					end
+				elseif nextToken == "def" then
+				elseif nextToken == "equ" then
+					--preprocess labels
+				end
+			end
+		end
+
+		if tokensToRemove > 0 then
+			for rem = 1,#tokensToRemove do
+				newTokenInst[rem] = nil
+			end
+		end
+		if #newTokenInst > 0 then
+			newTokenizedLines[i-offset][1] = newTokenInst
+		else
+			offset = offset + 1
+		end
+	end
+		for k,v in pairs(labels) do
+			print(k.." "..v)
+		end
+	return labels, tokenizedLines, errors
 end
 
 function luasm.pass2(tokenizedLines, mem_tokens, errors)
@@ -418,19 +503,15 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 
 				if disp then
 					if mod == 0 and rm == 6 then
-						local firstByte = bit.shl(disp, 24)
-						firstByte = bit.shr(firstByte, 24)
-						local secondByte = bit.shl(disp, 16)
-						secondByte = bit.shr(secondByte, 24)
+						local firstByte, secondByte = luasm.getLittleEndianWord(disp)
 						table.insert(bin, firstByte)
 						table.insert(bin, secondByte)
 					elseif mod == 1 then
-						disp = bit.shl(disp, 24)
-						disp = bit.shr(disp, 24)
+						disp = luasm.getByte(disp)
 						table.insert(bin, disp)
 					elseif mod == 2 then
-						local firstByte = bit.shl(disp, 24)
-						firstByte = bit.shr(firstByte, 24)
+						--local firstByte = bit.shl(disp, 24)
+						--firstByte = bit.shr(firstByte, 24)
 						local secondByte = bit.shl(disp, 16)
 						secondByte = bit.shr(secondByte, 24)
 						table.insert(bin, secondByte)
@@ -446,23 +527,16 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 					modrm = luasm.getModRM(mod, reg, rm)
 					table.insert(bin, modrm)
 
-					local firstByte = bit.shl(disp, 24)
-					firstByte = bit.shr(firstByte, 24)
-					local secondByte = bit.shl(disp, 16)
-					secondByte = bit.shr(secondByte, 24)
+					local firstByte, secondByte = luasm.getLittleEndianWord(disp)
 					table.insert(bin, firstByte)
 					table.insert(bin, secondByte)
 
 					if size == "byte" then
-						imm = bit.shl(imm, 24)
-						imm = bit.shr(imm, 24)
+						imm = luasm.getByte(imm)
 						table.insert(bin, imm)
 					elseif size == "word" then
 						bin[1] = bit.OR(bin[1], 1) --set opcode size bit
-						local firstByte = bit.shl(imm, 24)
-						firstByte = bit.shr(firstByte, 24)
-						local secondByte = bit.shl(imm, 16)
-						secondByte = bit.shr(secondByte, 24)
+						local firstByte, secondByte = luasm.getLittleEndianWord(imm)
 						table.insert(bin, firstByte)
 						table.insert(bin, secondByte)
 					end
@@ -471,18 +545,14 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 					if actualInst[1] == "mov" then
 						imm = src
 						bin[1] = bit.OR(bin[1], luasm.REG[dest]) --add reg to opcode
-						imm = bit.shl(imm, 24)
-						imm = bit.shr(imm, 24)
+						imm = luasm.getByte(imm)
 						table.insert(bin, imm)
 					end
 				elseif destToken == "r16" then
 					if actualInst[1] == "mov" then
 						imm = src
 						bin[1] = bit.OR(bin[1], luasm.REG[dest]) --add reg to opcode
-						local firstByte = bit.shl(imm, 24)
-						firstByte = bit.shr(firstByte, 24)
-						local secondByte = bit.shl(imm, 16)
-						secondByte = bit.shr(secondByte, 24)
+						local firstByte, secondByte = luasm.getLittleEndianWord(imm)
 						table.insert(bin, firstByte)
 						table.insert(bin, secondByte)
 					end
@@ -494,15 +564,11 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 					modrm = luasm.getModRM(mod, reg, rm)
 					table.insert(bin, modrm)
 					if size == "byte" then
-						imm = bit.shl(imm, 24)
-						imm = bit.shr(imm, 24)
+						imm = luasm.getByte(imm)
 						table.insert(bin, imm)
 					elseif size == "word" then
 						bin[1] = bit.OR(bin[1], 1) --set opcode size bit
-						local firstByte = bit.shl(imm, 24)
-						firstByte = bit.shr(firstByte, 24)
-						local secondByte = bit.shl(imm, 16)
-						secondByte = bit.shr(secondByte, 24)
+						local firstByte, secondByte = luasm.getLittleEndianWord(imm)
 						table.insert(bin, firstByte)
 						table.insert(bin, secondByte)
 					end
@@ -510,12 +576,17 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 			end
 
 			local binStr = ""
-			for ind, bi in pairs(bin) do
-			local hex = string.format("%x", bi)
-			if string.len(hex) == 1 then hex = "0"..hex end
-				binStr = binStr..hex.." "
+			for bini, binv in pairs(bin) do
+				if type(binv) ~= "table" then
+					local hex = string.format("%x", binv)
+					if string.len(hex) == 1 then
+						hex = "0"..hex
+					end
+					binStr = binStr..hex.." "
+				end
 			end
 			print(binStr)
+
 		elseif #line[1] == 1 then
 			local tokenInst = line[1]
 			local opcode
@@ -540,6 +611,20 @@ function luasm.getModRM(mod, reg, rm)
 	modrm = bit.shl(modrm, 3)
 	modrm = bit.OR(modrm, rm)
 	return modrm
+end
+
+function luasm.getLittleEndianWord(n)
+	local firstByte = bit.shl(n, 24)
+	firstByte = bit.shr(firstByte, 24)
+	local secondByte = bit.shl(n, 16)
+	secondByte = bit.shr(secondByte, 24)
+	return firstByte, secondByte
+end
+
+function luasm.getByte(n)
+	n = bit.shl(n, 24)
+	n = bit.shr(n, 24)
+	return n
 end
 
 return luasm

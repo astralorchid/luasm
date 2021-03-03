@@ -1,3 +1,3 @@
-mov ax, 0xb800
-mov ss, ax
-mov byte [0x0], 0x65
+start:
+start2:
+	xor ax, ax
