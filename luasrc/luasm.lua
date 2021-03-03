@@ -373,6 +373,7 @@ function luasm.getLabels(tokenizedLines, mem_tokens, errors)
 								bin[0][actual] = true
 							else
 								bin[0] = nil --check if bin[0] == nil to set label flag
+								print("Set label offset to line "..i+1)
 							end
 							if nextBin and not actualInst[b+2] then
 								nextBin[0][actual] = true
