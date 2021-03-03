@@ -8,8 +8,9 @@ local argc, argv = getargs()
 local file = io.open(argv, "r")
 local content = file:read("*a")
 --local content = fopen(argv)
-local lines, mem_tokens = luasm.tokenize(content)
-local errors, outputbin = luasm.assemble(lines, mem_tokens)
+local errors = {}
+local lines, mem_tokens, errors = luasm.tokenize(content, errors)
+local errors, outputbin = luasm.assemble(lines, mem_tokens, errors)
 
 if #errors > 0 then
 	for i,v in pairs(errors) do
