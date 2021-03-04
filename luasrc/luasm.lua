@@ -275,7 +275,7 @@ function luasm.assemble(lines, mem_tokens, errors)
 	
 	--[[pass 2: assemble]]
 	tokenizedLines, errors = luasm.pass2(tokenizedLines, mem_tokens, errors)
-	--labels, tokenizedLines, errors = luasm.setLabelOffsets(labels, tokenizedLines, errors)
+	labels, tokenizedLines, errors = luasm.setLabelOffsets(labels, tokenizedLines, errors)
 		for k,v in pairs(labels) do
 			print(k.." "..v)
 		end
@@ -362,12 +362,14 @@ function luasm.setLabelOffsets(labels, tokenizedLines, errors)
 		local bin = line[3]
 		if type(bin[0]) == "table" then
 			for o, b in pairs(bin[0]) do
-			labels[b] = bin_ptr
+				labels[b] = bin_ptr
+				print("Added offset")
 			end
 		end
+
 		for ia, va in pairs(actualInst) do
 			if type(va) == "table" then
-				bin_ptr = bin_ptr + #va-1
+				bin_ptr = bin_ptr + #va
 			end
 		end
 		for ibin, vbin in pairs(bin) do
@@ -443,7 +445,7 @@ function luasm.collapseLabelDef(tokenizedLines)
 		local tokenInst = line[1]
 		local bin = line[3]
 		if #tokenInst == 0 then
-			for bini, binv in pairs(bin) do
+			for bini, binv in pairs(bin[0]) do
 				table.insert(carryLabels, binv)
 			end
 			bin[0] = 0
@@ -451,7 +453,7 @@ function luasm.collapseLabelDef(tokenizedLines)
 		else
 			--print(tokenInst[1])
 			for ci, cv in pairs(carryLabels) do
-				table.insert(bin, cv)
+				table.insert(bin[0], cv)
 			end
 			carryLabels = {}
 			table.insert(newTokenizedLines, line)
@@ -785,7 +787,7 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 					binStr = binStr..hex.." "
 				else
 					for lbli,lblv in pairs(binv) do
-						print(lblv)
+						print(lblv.."pp")
 					end
 				end
 			end
