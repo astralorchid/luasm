@@ -371,7 +371,7 @@ function luasm.setLabelOffsets(labels, tokenizedLines, errors)
 
 		for ia, va in pairs(actualInst) do
 			if type(va) == "table" then
-				bin_ptr = bin_ptr + #va
+				bin_ptr = bin_ptr + #va-1
 			end
 		end
 		for ibin, vbin in pairs(bin) do
@@ -588,10 +588,6 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 			local size = actualInst[0]
 			local modrmReady = false
 
-			for o, b in pairs(bin[0]) do
-				--print(o..": ")
-			end
-
 			for b, token in pairs(tokenInst) do
 				opcodeString = opcodeString..token.." "
 			end
@@ -738,6 +734,7 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 
 						bin[1] = bit.OR(bin[1], luasm.REG[dest]) --add reg to opcode
 						imm = luasm.getByte(imm)
+
 						if type(src) == "table" then
 							src[2] = imm
 							table.insert(bin, src[1]) --insert label name into bin to be replaced on next pass
@@ -756,6 +753,7 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 
 						bin[1] = bit.OR(bin[1], luasm.REG[dest]) --add reg to opcode
 						local firstByte, secondByte = luasm.getLittleEndianWord(imm)
+
 						if type(src) == "table" then
 							src[2] = firstByte
 							src[3] = secondByte
@@ -803,7 +801,7 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 			local opcode
 			local bin = line[3]
 
-			opcode = OPCODES[tokenInst[1]]
+			opcode = OPCODES[tokenInst[1].." "]
 			if not opcode then
 				--print(tokenInst[1].." "..actualInst[1].."e")
 					table.insert(errors, {"Invalid token / instruction format", i})
@@ -832,7 +830,7 @@ function luasm.getOutputBinary(labels, tokenizedLines, errors)
 				if bini > 0 then
 					if type(binv) == "string" then
 						local labelOffset = labels[binv]
-							if labelOffset > 0 then labelOffset = labelOffset - 1 end
+							--if labelOffset > 0 then labelOffset = labelOffset - 1 end
 						local size = 0
 						for ai, av in pairs(actualInst) do
 							if ai > 0 and type(av) == "table" then

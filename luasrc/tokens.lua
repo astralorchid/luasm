@@ -49,6 +49,7 @@ local tokens = {
 	xchg = "xchg",
 	lea = "lea",
 	nop = "nop",
+	cli = "cli",
 	["+"] = "+",
 	[":"] = ":",
 	db = "def",
