@@ -276,6 +276,7 @@ function luasm.assemble(lines, mem_tokens, errors)
 	--[[pass 2: assemble]]
 	tokenizedLines, errors = luasm.pass2(tokenizedLines, mem_tokens, errors)
 	labels, tokenizedLines, errors = luasm.setLabelOffsets(labels, tokenizedLines, errors)
+	tokenizedLines, errors = luasm.getOutputBinary(tokenizedLines, errors)
 		for k,v in pairs(labels) do
 			print(k.." "..v)
 		end
@@ -373,7 +374,7 @@ function luasm.setLabelOffsets(labels, tokenizedLines, errors)
 			end
 		end
 		for ibin, vbin in pairs(bin) do
-			if ibin > 0 then
+			if ibin > 0 and type(vbin) ~= "string" then
 				bin_ptr = bin_ptr + 1
 			end
 		end
@@ -381,6 +382,7 @@ function luasm.setLabelOffsets(labels, tokenizedLines, errors)
 	print(bin_ptr)
 	return labels, tokenizedLines, errors
 end
+
 function luasm.replaceLabels(labels, tokenizedLines, errors)
 	for i, line in pairs(tokenizedLines) do
 			local tokenInst = line[1]
@@ -403,7 +405,9 @@ function luasm.replaceLabels(labels, tokenizedLines, errors)
 				if labels[actual] then
 					print("Label exists")
 					tokenInst[b] = "mimm"
-					actualInst[b] = labels[actual]
+					actualInst[b] = {}
+					actualInst[b][1] = actual
+					actualInst[b][2] = 0
 				else
 					table.insert(errors, {"Undefined label ("..actual..")", i})
 					break
@@ -735,6 +739,7 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 						imm = luasm.getByte(imm)
 						if type(src) == "table" then
 							src[2] = imm
+							table.insert(bin, src[1]) --insert label name into bin to be replaced on next pass
 						else
 							table.insert(bin, imm)
 						end
@@ -753,6 +758,7 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 						if type(src) == "table" then
 							src[2] = firstByte
 							src[3] = secondByte
+							table.insert(bin, src[1]) --insert label name into bin to be replaced on next pass
 						else
 							table.insert(bin, firstByte)
 							table.insert(bin, secondByte)
@@ -779,16 +785,13 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 
 			local binStr = ""
 			for bini, binv in pairs(bin) do
-				if type(binv) ~= "table" then
+				if type(binv) ~= "table" and type(binv) ~= "string" then
 					local hex = string.format("%x", binv)
 					if string.len(hex) == 1 then
 						hex = "0"..hex
 					end
 					binStr = binStr..hex.." "
 				else
-					for lbli,lblv in pairs(binv) do
-						print(lblv.."pp")
-					end
 				end
 			end
 			print(binStr)		
@@ -815,7 +818,16 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 	end
 	return tokenizedLines, errors
 end
-
+function luasm.getOutputBinary(tokenizedLines, errors)
+	for i, line in pairs(tokenizedLines) do
+		local tokenInst = line[1]
+		local actualInst = line[2]
+		local bin = line[3]
+		local newBin = {}
+		local finalBin = {}
+	end
+	return tokenizedLines, errors
+end
 function luasm.getModRM(mod, reg, rm)
 	local modrm = bit.shl(mod, 3)
 	modrm = bit.OR(modrm, reg)
