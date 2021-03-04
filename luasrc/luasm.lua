@@ -271,9 +271,15 @@ function luasm.assemble(lines, mem_tokens, errors)
 	--[[pass 1: detect instruction size / omit size tokens]]
 	tokenizedLines, errors = luasm.setInstructionSizes(tokenizedLines, mem_tokens, errors)
 	labels, tokenizedLines, errors = luasm.getLabels(tokenizedLines, mem_tokens, errors)
+	tokenizedLines, errors = luasm.replaceLabels(labels, tokenizedLines, errors)
+	
 	--[[pass 2: assemble]]
 	tokenizedLines, errors = luasm.pass2(tokenizedLines, mem_tokens, errors)
-		
+	--labels, tokenizedLines, errors = luasm.setLabelOffsets(labels, tokenizedLines, errors)
+		for k,v in pairs(labels) do
+			print(k.." "..v)
+		end
+
 	return errors, outputbin
 end
 
@@ -348,6 +354,65 @@ function luasm.setInstructionSizes(tokenizedLines, mem_tokens, errors)
 	return tokenizedLines, errors
 end
 
+function luasm.setLabelOffsets(labels, tokenizedLines, errors)
+	local bin_ptr = 0
+	for i, line in pairs(tokenizedLines) do
+		local tokenInst = line[1]
+		local actualInst = line[2]
+		local bin = line[3]
+		if type(bin[0]) == "table" then
+			for o, b in pairs(bin[0]) do
+			labels[b] = bin_ptr
+			end
+		end
+		for ia, va in pairs(actualInst) do
+			if type(va) == "table" then
+				bin_ptr = bin_ptr + #va-1
+			end
+		end
+		for ibin, vbin in pairs(bin) do
+			if ibin > 0 then
+				bin_ptr = bin_ptr + 1
+			end
+		end
+	end
+	print(bin_ptr)
+	return labels, tokenizedLines, errors
+end
+function luasm.replaceLabels(labels, tokenizedLines, errors)
+	for i, line in pairs(tokenizedLines) do
+			local tokenInst = line[1]
+			local actualInst = line[2]
+			local bin = line[3]
+		for b, token in pairs(tokenInst) do
+			local actual = actualInst[b]
+			if token == "lbl" and bin[0] ~= 0 then
+				if labels[actual] then
+					print("Label exists")
+					tokenInst[b] = "imm"
+					actualInst[b] = {}
+					actualInst[b][1] = actual
+					actualInst[b][2] = 0
+				else
+					table.insert(errors, {"Undefined label ("..actual..")", i})
+					break
+				end
+			elseif token == "mlbl" then
+				if labels[actual] then
+					print("Label exists")
+					tokenInst[b] = "mimm"
+					actualInst[b] = labels[actual]
+				else
+					table.insert(errors, {"Undefined label ("..actual..")", i})
+					break
+				end
+			end
+		end
+	end
+
+	return tokenizedLines, errors
+end
+
 local cloneTable = {__call = function(t)
 	local nt = {}
 		for k,v in pairs(t) do
@@ -368,10 +433,6 @@ function luasm.getLabels(tokenizedLines, mem_tokens, errors)
 	end
 
 		newTokenizedLines = luasm.collapseLabelDef(tokenizedLines)
-
-		for k,v in pairs(labels) do
-			print(k.." "..v)
-		end
 	return labels, newTokenizedLines,--[[newTokenizedLines,]] errors
 end
 
@@ -527,9 +588,9 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 			for b, token in pairs(tokenInst) do
 				opcodeString = opcodeString..token.." "
 			end
-			for b, token in pairs(actualInst) do
-				actualString = actualString..token.." "
-			end
+			--for b, token in pairs(actualInst) do
+				--actualString = actualString..token.." "
+			--end
 			opcode = OPCODES[opcodeString]
 
 			--print(actualString)
@@ -645,7 +706,6 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 					imm = src
 					modrm = luasm.getModRM(mod, reg, rm)
 					table.insert(bin, modrm)
-
 					local firstByte, secondByte = luasm.getLittleEndianWord(disp)
 					table.insert(bin, firstByte)
 					table.insert(bin, secondByte)
@@ -662,18 +722,39 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 
 				elseif destToken == "r8" then
 					if actualInst[1] == "mov" then
-						imm = src
+
+						if type(src) == "table" then
+							imm = src[2]
+						else
+							imm = src
+						end
+
 						bin[1] = bit.OR(bin[1], luasm.REG[dest]) --add reg to opcode
 						imm = luasm.getByte(imm)
-						table.insert(bin, imm)
+						if type(src) == "table" then
+							src[2] = imm
+						else
+							table.insert(bin, imm)
+						end
 					end
 				elseif destToken == "r16" then
 					if actualInst[1] == "mov" then
-						imm = src
+
+						if type(src) == "table" then
+							imm = src[2]
+						else
+							imm = src
+						end
+
 						bin[1] = bit.OR(bin[1], luasm.REG[dest]) --add reg to opcode
 						local firstByte, secondByte = luasm.getLittleEndianWord(imm)
-						table.insert(bin, firstByte)
-						table.insert(bin, secondByte)
+						if type(src) == "table" then
+							src[2] = firstByte
+							src[3] = secondByte
+						else
+							table.insert(bin, firstByte)
+							table.insert(bin, secondByte)
+						end
 					end
 				elseif destToken == "mr16" then
 					mod = 0

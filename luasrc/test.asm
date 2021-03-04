@@ -2,7 +2,7 @@ uselessLabel:
 start: xor ax, ax
     start2:
     start3:
-    mov ds, ax
+    mov ax, start
     mov es, ax
     mov ss, ax
 another:
