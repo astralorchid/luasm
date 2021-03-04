@@ -7,7 +7,9 @@ start: xor ax, ax
     mov es, ax
     mov ss, ax
 another:
+mov ax, uselessLabel
 ayy:
 xorBp: xor bp, bp
 xor sp, sp
+
 anotherLabel:

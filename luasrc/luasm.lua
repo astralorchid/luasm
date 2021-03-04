@@ -819,6 +819,7 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 	end
 	return tokenizedLines, errors
 end
+
 function luasm.getOutputBinary(labels, tokenizedLines, errors)
 	local totalBin = {}
 	for i, line in pairs(tokenizedLines) do
@@ -831,6 +832,7 @@ function luasm.getOutputBinary(labels, tokenizedLines, errors)
 				if bini > 0 then
 					if type(binv) == "string" then
 						local labelOffset = labels[binv]
+							if labelOffset > 0 then labelOffset = labelOffset - 1 end
 						local size = 0
 						for ai, av in pairs(actualInst) do
 							if ai > 0 and type(av) == "table" then
