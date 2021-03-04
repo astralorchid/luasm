@@ -276,7 +276,8 @@ function luasm.assemble(lines, mem_tokens, errors)
 	--[[pass 2: assemble]]
 	tokenizedLines, errors = luasm.pass2(tokenizedLines, mem_tokens, errors)
 	labels, tokenizedLines, errors = luasm.setLabelOffsets(labels, tokenizedLines, errors)
-	tokenizedLines, errors = luasm.getOutputBinary(tokenizedLines, errors)
+
+	tokenizedLines, errors = luasm.getOutputBinary(labels, tokenizedLines, errors)
 		for k,v in pairs(labels) do
 			print(k.." "..v)
 		end
@@ -818,14 +819,46 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 	end
 	return tokenizedLines, errors
 end
-function luasm.getOutputBinary(tokenizedLines, errors)
+function luasm.getOutputBinary(labels, tokenizedLines, errors)
+	local totalBin = {}
 	for i, line in pairs(tokenizedLines) do
 		local tokenInst = line[1]
 		local actualInst = line[2]
 		local bin = line[3]
 		local newBin = {}
-		local finalBin = {}
+		if bin[0] ~= 0 then
+			for bini, binv in pairs(bin) do
+				if bini > 0 then
+					if type(binv) == "string" then
+						local labelOffset = labels[binv]
+						local size = 0
+						for ai, av in pairs(actualInst) do
+							if ai > 0 and type(av) == "table" then
+								size = #av-1
+							end
+						end
+						if size == 2 then
+							local firstByte, secondByte = luasm.getLittleEndianWord(labelOffset)
+							table.insert(totalBin, firstByte)
+							table.insert(totalBin, secondByte)
+						end
+					else
+						table.insert(totalBin, binv)
+					end
+				end
+			end
+		end
 	end
+	print(#totalBin)
+				local binStr = ""
+			for bini, binv in pairs(totalBin) do
+					local hex = string.format("%x", binv)
+					if string.len(hex) == 1 then
+						hex = "0"..hex
+					end
+					binStr = binStr..hex.." "
+			end
+			print(binStr)		
 	return tokenizedLines, errors
 end
 function luasm.getModRM(mod, reg, rm)
