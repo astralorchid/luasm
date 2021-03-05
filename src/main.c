@@ -4,7 +4,7 @@
 #include "lua.h"
 #include "lualib.h"
 #include "lauxlib.h"
-
+#include <time.h>
 int GLOBAL_ARGC;
 char* GLOBAL_ARGV;
 char* OUTPUT_BINARY;
@@ -12,7 +12,8 @@ unsigned int OUTPUT_BINARY_SIZE = 0;
 unsigned int CURSOR = 0;
 int main(int argc, char* argv[])
 {
-
+    time_t t = clock();
+    time_t endt;
     printf("%i", argc);
     printf("%s", "\n");
     printf("%s", argv[0]);
@@ -33,7 +34,9 @@ int main(int argc, char* argv[])
     }
 
     lua_close(L);
-
+    endt = clock();
+    endt = endt - t;
+    printf("%u", (long int)endt);
     return 0;
 
 }
