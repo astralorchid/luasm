@@ -413,7 +413,7 @@ end
 function luasm.convertLblToImm(labels, b, tokenType, tokenInst, actualInst, actual, errors)
 	if labels[actual] then
 		--print("Label exists")
-		tokenInst[b] = "imm"
+		tokenInst[b] = tokenType
 		actualInst[b] = {}
 		actualInst[b][1] = actual
 		actualInst[b][2] = 0
@@ -697,22 +697,57 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 					mod = 0
 					rm = 6
 					reg = luasm.IMM_OPCODE_EXT[actualInst[1]]
-					disp = dest
-					imm = src
+					--disp = dest
+						if type(dest) == "table" then
+							disp = dest[2]
+						else
+							disp = dest
+						end
+					--imm = src
+						if type(src) == "table" then
+							imm = src[2]
+						else
+							imm = src
+						end
 					modrm = luasm.getModRM(mod, reg, rm)
 					tins(bin, modrm)
 					local firstByte, secondByte = luasm.getLittleEndianWord(disp)
-					tins(bin, firstByte)
-					tins(bin, secondByte)
+					--tins(bin, firstByte)
+					--tins(bin, secondByte)
+						if type(dest) == "table" then
+							dest[2] = firstByte
+							dest[3] = secondByte
+							tins(bin, dest[1]) --insert label name into bin to be replaced on next pass
+						else
+							tins(bin, firstByte)
+							tins(bin, secondByte)
+						end
 
 					if size == "byte" then
+					print(srcToken)
 						imm = luasm.getByte(imm)
-						tins(bin, imm)
+						--tins(bin, imm)
+						if type(src) == "table" then
+							src[2] = imm
+							tins(bin, src[1]) --insert label name into bin to be replaced on next pass
+						else
+							tins(bin, imm)
+						end
+
 					elseif size == "word" then
 						bin[1] = bit.OR(bin[1], 1) --set opcode size bit
 						local firstByte, secondByte = luasm.getLittleEndianWord(imm)
-						tins(bin, firstByte)
-						tins(bin, secondByte)
+						--tins(bin, firstByte)
+						--tins(bin, secondByte)
+						if type(src) == "table" then
+							src[2] = firstByte
+							src[3] = secondByte
+							tins(bin, src[1]) --insert label name into bin to be replaced on next pass
+						else
+							tins(bin, firstByte)
+							tins(bin, secondByte)
+						end
+
 					end
 
 				elseif destToken == "r8" then
@@ -822,17 +857,22 @@ function luasm.getOutputBinary(labels, tokenizedLines, errors)
 				if bini > 0 then
 					if type(binv) == "string" then
 						local labelOffset = labels[binv]
+						print(binv)
 							--if labelOffset > 0 then labelOffset = labelOffset - 1 end
 						local size = 0
 						for ai, av in pairs(actualInst) do
-							if ai > 0 and type(av) == "table" then
+							if ai > 0 and type(av) == "table" and av[1] == binv then
 								size = #av-1
+								break
 							end
 						end
 						if size == 2 then
 							local firstByte, secondByte = luasm.getLittleEndianWord(labelOffset)
 							tins(totalBin, firstByte)
 							tins(totalBin, secondByte)
+						elseif size == 1 then
+							local byte = luasm.getByte(labelOffset)
+							tins(totalBin, byte)
 						end
 					else
 						tins(totalBin, binv)
