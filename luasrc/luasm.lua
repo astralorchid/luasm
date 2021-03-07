@@ -677,19 +677,45 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 				table.insert(bin, modrm)
 
 				if disp then
-					if mod == 0 and rm == 6 then
-						local firstByte, secondByte = luasm.getLittleEndianWord(disp)
-						tins(bin, firstByte)
-						tins(bin, secondByte)
-					elseif mod == 1 then
-						disp = luasm.getByte(disp)
-						tins(bin, disp)
-					elseif mod == 2 then
-						--local firstByte = bit.shl(disp, 24)
-						--firstByte = bit.shr(firstByte, 24)
-						local secondByte = bit.shl(disp, 16)
-						secondByte = bit.shr(secondByte, 24)
-						tins(bin, secondByte)
+					if type(disp) == "table" then
+						if mod == 0 and rm == 6 then
+							local firstByte, secondByte = luasm.getLittleEndianWord(disp)
+							--tins(bin, firstByte)
+							--tins(bin, secondByte)
+							disp[2] = firstByte
+							disp[3] = secondByte
+							tins(bin, disp[1]) 
+						elseif mod == 1 then
+							local byte = luasm.getByte(disp)
+							--tins(bin, disp)
+							disp[2] = byte
+							tins(bin, disp[1]) 
+						elseif mod == 2 then
+							--local firstByte = bit.shl(disp, 24)
+							--firstByte = bit.shr(firstByte, 24)
+							local firstByte, secondByte = luasm.getLittleEndianWord(disp)
+							disp[2] = firstByte
+							disp[3] = secondByte
+							tins(bin, disp[1])
+							--local secondByte = bit.shl(disp, 16)
+							--secondByte = bit.shr(secondByte, 24)
+							--tins(bin, secondByte)
+						end
+					else
+						if mod == 0 and rm == 6 then
+							local firstByte, secondByte = luasm.getLittleEndianWord(disp)
+							tins(bin, firstByte)
+							tins(bin, secondByte)
+						elseif mod == 1 then
+							disp = luasm.getByte(disp)
+							tins(bin, disp)
+						elseif mod == 2 then
+							--local firstByte = bit.shl(disp, 24)
+							--firstByte = bit.shr(firstByte, 24)
+							local secondByte = bit.shl(disp, 16)
+							secondByte = bit.shr(secondByte, 24)
+							tins(bin, secondByte)
+						end
 					end
 				end
 			else
