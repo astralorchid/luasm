@@ -8,11 +8,21 @@ local argc, argv = getargs()
 local file = io.open(argv, "r")
 local content = file:read("*a")
 local content = string.split(content)
+
+local strFlag
 for i,v in pairs(content) do
-	--print(string.byte(v))
+	if v == "'" or v == '"' then
+		if strFlag and strFlag == v then
+			strFlag = nil
+		else
+			strFlag = v
+		end
+	end
 	if v == string.char(9) then
 		content[i] = string.char(32)
-		--print("Converted tab to space")
+	end
+	if v == " " and strFlag then
+		content[i] = string.char(0xFF)
 	end
 end
 content = table.concat(content)

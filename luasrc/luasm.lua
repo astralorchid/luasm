@@ -269,11 +269,16 @@ function luasm:FindToken(token)
 		return tokenImmediate, "imm"
 	end
 
-	local splitToken = string.split(token)
-	if splitToken[1] == "'" and splitToken[#splitToken] == "'" then
+	local splitToken = sspl(token)
+	if (splitToken[1] == "'" and splitToken[#splitToken] == "'") or (splitToken[1] == '"' and splitToken[#splitToken] == '"') then
+		for sti, stv in pairs(splitToken) do
+			if stv == string.char(0xFF) then
+			splitToken[sti] = " "
+			end
+		end
 		trem(splitToken, #splitToken)
 		trem(splitToken, 1)
-		token = table.concat(splitToken)
+		token = tcon(splitToken)
 		return token, "str"
 	end
 
@@ -308,16 +313,16 @@ function luasm.createTokenizedLines(lines, tokenizedLines, mem_tokens)
 		for b = 1,#line do
 			local token, tokenType = luasm:FindToken(line[b])
 			if token then
-				if tokenType ~= "str" then
-					if mem_tokens[i] and mem_tokens[i][b] then
-						tokenType = "m"..tokenType
-					end
-					tins(tokenizedLine, {token, tokenType})
-				else
+				if tokenType == "str" then
 					local chars = string.split(token)
 					for ci, cv in pairs(chars) do
 						tins(tokenizedLine, {string.byte(cv), "imm"})
 					end
+				else
+					if mem_tokens[i] and mem_tokens[i][b] then
+						tokenType = "m"..tokenType
+					end
+					tins(tokenizedLine, {token, tokenType})
 				end
 			end
 		end
@@ -349,7 +354,7 @@ function luasm.setInstructionSizes(tokenizedLines, mem_tokens, errors)
 
 				if tokenSize and tokenSize ~= actualInst[0] and not isMem then
 					--print(actualInst[0])
-					table.insert(errors, {"Operand size mismatch", i})
+					tins(errors, {"Operand size mismatch", i})
 					break
 				end
 			end
@@ -470,17 +475,17 @@ function luasm.collapseLabelDef(tokenizedLines)
 		local bin = line[3]
 		if #tokenInst == 0 then
 			for bini, binv in pairs(bin[0]) do
-				table.insert(carryLabels, binv)
+				tins(carryLabels, binv)
 			end
 			bin[0] = 0
-			table.insert(newTokenizedLines, line)
+			tins(newTokenizedLines, line)
 		else
 			--print(tokenInst[1])
 			for ci, cv in pairs(carryLabels) do
-				table.insert(bin[0], cv)
+				tins(bin[0], cv)
 			end
 			carryLabels = {}
-			table.insert(newTokenizedLines, line)
+			tins(newTokenizedLines, line)
 		end
 	end
 	return newTokenizedLines

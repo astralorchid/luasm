@@ -50,6 +50,9 @@ local tokens = {
 	lea = "lea",
 	nop = "nop",
 	cli = "cli",
+	sti = "sti",
+	hlt = "hlt",
+
 	["+"] = "+",
 	[":"] = ":",
 	db = "def",
@@ -57,12 +60,13 @@ local tokens = {
 	dd = "def",
 	dq = "def",
 	equ = "equ",
+	org = "org",
 
 	byte = "size",
 	word = "size",
 	dword = "size",
-	by = "by",
-	wo = "word",
+	by = "size",
+	wo = "size",
 
 }
 
