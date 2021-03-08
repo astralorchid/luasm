@@ -268,6 +268,15 @@ function luasm:FindToken(token)
 	if tokenImmediate then
 		return tokenImmediate, "imm"
 	end
+
+	local splitToken = string.split(token)
+	if splitToken[1] == "'" and splitToken[#splitToken] == "'" then
+		trem(splitToken, #splitToken)
+		trem(splitToken, 1)
+		token = table.concat(splitToken)
+		return token, "str"
+	end
+
 	return token, "lbl"
 
 end
@@ -299,10 +308,17 @@ function luasm.createTokenizedLines(lines, tokenizedLines, mem_tokens)
 		for b = 1,#line do
 			local token, tokenType = luasm:FindToken(line[b])
 			if token then
-				if mem_tokens[i] and mem_tokens[i][b] then
-					tokenType = "m"..tokenType
+				if tokenType ~= "str" then
+					if mem_tokens[i] and mem_tokens[i][b] then
+						tokenType = "m"..tokenType
+					end
+					tins(tokenizedLine, {token, tokenType})
+				else
+					local chars = string.split(token)
+					for ci, cv in pairs(chars) do
+						tins(tokenizedLine, {string.byte(cv), "imm"})
+					end
 				end
-				tins(tokenizedLine, {token, tokenType})
 			end
 		end
 		tins(tokenizedLines, tokenizedLine)

@@ -1,1 +1,1 @@
-xor cx, 0xb800
+db 'hello', 0
