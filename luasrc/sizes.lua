@@ -1,6 +1,8 @@
 local SIZES = {
 	byte = "byte",
 	word = "word",
+	by = "byte",
+	wo = "word",
 	al = "byte",
 	bl = "byte",
 	cl = "byte",
@@ -36,6 +38,11 @@ local SIZES = {
 	fs = "word",
 	gs = "word",
 	ss = "word",
+
+	db = "byte",
+	dw = "word",
+	dd = "dword",
+	dq = "qword"
 
 }
 

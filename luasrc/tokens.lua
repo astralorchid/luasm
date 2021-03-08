@@ -60,7 +60,9 @@ local tokens = {
 
 	byte = "size",
 	word = "size",
-	dword = "size"
+	dword = "size",
+	by = "by",
+	wo = "word",
 
 }
 

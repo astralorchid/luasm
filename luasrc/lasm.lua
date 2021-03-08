@@ -21,7 +21,7 @@ local errors = {}
 local lines, mem_tokens, errors = luasm.tokenize(content, errors)
 local errors, outputbin = luasm.assemble(lines, mem_tokens, errors)
 
-if #errors > 0 then
+if errors and #errors > 0 then
 	for i,v in pairs(errors) do
 	print("luasm:"..argv..":"..v[2]..":".." "..v[1])
 	end
