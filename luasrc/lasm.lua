@@ -9,7 +9,7 @@ local file = io.open(argv, "r")
 local content = file:read("*a")
 local content = string.split(content)
 
-local strFlag
+local strFlag --replace spaces in string literals with 0xFF
 for i,v in pairs(content) do
 	if v == "'" or v == '"' then
 		if strFlag and strFlag == v then
@@ -25,6 +25,7 @@ for i,v in pairs(content) do
 		content[i] = string.char(0xFF)
 	end
 end
+
 content = table.concat(content)
 --local content = fopen(argv)
 local errors = {}

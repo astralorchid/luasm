@@ -303,11 +303,15 @@ function luasm.assemble(lines, mem_tokens, errors)
 	labels, tokenizedLines, errors = luasm.setLabelOffsets(labels, tokenizedLines, errors, org)
 
 	tokenizedLines, errors, outputbin = luasm.getOutputBinary(labels, tokenizedLines, errors)
-		for k,v in pairs(labels) do
-			print(k.." "..v)
-		end
 
 	if bootsig then 
+		outputbin = luasm.setBootsig(outputbin, bootsig)
+	end
+
+	return errors, outputbin
+end
+
+function luasm.setBootsig(outputbin, bootsig)
 		if outputbin[bootsig+1] then
 		outputbin[bootsig+1] = 0x55
 		outputbin[bootsig+2] = 0xAA
@@ -321,9 +325,7 @@ function luasm.assemble(lines, mem_tokens, errors)
 		outputbin[bootsig+1] = 0x55
 		outputbin[bootsig+2] = 0xAA
 		end
-	end
-
-	return errors, outputbin
+	return outputbin
 end
 
 function luasm.preprocess(tokenizedLines, mem_tokens, errors)
@@ -1050,6 +1052,15 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 					reg = luasm.REG[operand]
 					bin[1] = bit.OR(bin[1], reg)
 				end
+			elseif opcode > 0x6F and opcode < 0x80 then
+					if type(operand) == "table" then
+						imm = operand[2]
+						tins(bin, operand[1])
+					else
+						imm = operand
+						tinc(bin, imm)
+					end
+					
 			elseif mnem == "org" or mnem == "bootsig" then
 				bin[1] = nil
 			end
@@ -1097,13 +1108,18 @@ function luasm.getOutputBinary(labels, tokenizedLines, errors)
 								break
 							end
 						end
-						if size == 2 then
-							local firstByte, secondByte = luasm.getLittleEndianWord(labelOffset)
-							tins(totalBin, firstByte)
-							tins(totalBin, secondByte)
-						elseif size == 1 then
-							local byte = luasm.getByte(labelOffset)
-							tins(totalBin, byte)
+						if bin[1] > 0x6F and bin[1] < 0x80 then
+							local rel = labelOffset-#totalBin-1
+							print("RELATIVE OFFSET "..tostring(rel))
+						else
+							if size == 2 then
+								local firstByte, secondByte = luasm.getLittleEndianWord(labelOffset)
+								tins(totalBin, firstByte)
+								tins(totalBin, secondByte)
+							elseif size == 1 then
+								local byte = luasm.getByte(labelOffset)
+								tins(totalBin, byte)
+							end
 						end
 					else
 						tins(totalBin, binv)
