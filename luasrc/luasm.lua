@@ -165,7 +165,6 @@ function luasm.tokenize(inputString, errors)
 		end
 	end
 
-	--helps remove nil indices if throwing away tokens
 	for i,v in pairs(inputStringLines) do
 		local offset = 0
 		lines[i] = {}
@@ -289,22 +288,72 @@ end
 function luasm.assemble(lines, mem_tokens, errors)
 	local tokenizedLines = {}
 	local labels = {}
+	local outputbin = {}
+	local org = 0
+	local bootsig
+	--[[pass group 0: tokenize, preprocess]]
 	tokenizedLines = luasm.createTokenizedLines(lines, tokenizedLines, mem_tokens)
-	--[[pass 1: detect instruction size / omit size tokens]]
+	tokenizedLines, org, errors, bootsig = luasm.preprocess(tokenizedLines, mem_tokens, errors)
+	--[[pass group 1: detect instruction size, find labels and create placeholders]]
 	tokenizedLines, errors = luasm.setInstructionSizes(tokenizedLines, mem_tokens, errors)
 	labels, tokenizedLines, errors = luasm.getLabels(tokenizedLines, mem_tokens, errors)
 	tokenizedLines, errors = luasm.replaceLabels(labels, tokenizedLines, errors)
-	
-	--[[pass 2: assemble]]
+	--[[pass group 2: assemble, fill label offsets, generate binary]]
 	tokenizedLines, errors = luasm.pass2(tokenizedLines, mem_tokens, errors)
-	labels, tokenizedLines, errors = luasm.setLabelOffsets(labels, tokenizedLines, errors)
+	labels, tokenizedLines, errors = luasm.setLabelOffsets(labels, tokenizedLines, errors, org)
 
-	tokenizedLines, errors = luasm.getOutputBinary(labels, tokenizedLines, errors)
+	tokenizedLines, errors, outputbin = luasm.getOutputBinary(labels, tokenizedLines, errors)
 		for k,v in pairs(labels) do
 			print(k.." "..v)
 		end
 
+	if bootsig then 
+		if outputbin[bootsig+1] then
+		outputbin[bootsig+1] = 0x55
+		outputbin[bootsig+2] = 0xAA
+		else
+			local bootsigOffset = (bootsig-#outputbin)
+			for i = 1,bootsigOffset+1 do
+				if not outputbin[#outputbin+1] then
+					outputbin[#outputbin+1] = 0
+				end
+			end
+		outputbin[bootsig+1] = 0x55
+		outputbin[bootsig+2] = 0xAA
+		end
+	end
+
 	return errors, outputbin
+end
+
+function luasm.preprocess(tokenizedLines, mem_tokens, errors)
+	local org = 0
+	local bootsig
+	for i, line in pairs(tokenizedLines) do
+		for b, tokenPair in pairs(line) do
+			local nextPair = line[b+1]
+			local actual = tokenPair[1]
+			local token = tokenPair[2]
+
+			if token == "org" then
+				if nextPair and nextPair[2] == "imm" then
+					org = nextPair[1]
+				else
+					tins(errors, {"Invalid org directive", i})
+					break
+				end
+			elseif token == "bootsig" then
+				if nextPair and nextPair[2] == "imm" then
+					bootsig = nextPair[1]
+				else
+					tins(errors, {"Invalid bootsig directive", i})
+					break
+				end
+			end
+		end
+	end
+	print(org)
+	return tokenizedLines, org, errors, bootsig
 end
 
 function luasm.createTokenizedLines(lines, tokenizedLines, mem_tokens)
@@ -385,7 +434,7 @@ function luasm.setInstructionSizes(tokenizedLines, mem_tokens, errors)
 	return tokenizedLines, errors
 end
 
-function luasm.setLabelOffsets(labels, tokenizedLines, errors)
+function luasm.setLabelOffsets(labels, tokenizedLines, errors, org)
 	local bin_ptr = 0
 	for i, line in pairs(tokenizedLines) do
 		local tokenInst = line[1]
@@ -393,7 +442,7 @@ function luasm.setLabelOffsets(labels, tokenizedLines, errors)
 		local bin = line[3]
 		if type(bin[0]) == "table" then
 			for o, b in pairs(bin[0]) do
-				labels[b] = bin_ptr
+				labels[b] = bin_ptr + org
 				--print("Added offset")
 			end
 		end
@@ -1001,6 +1050,8 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 					reg = luasm.REG[operand]
 					bin[1] = bit.OR(bin[1], reg)
 				end
+			elseif mnem == "org" or mnem == "bootsig" then
+				bin[1] = nil
 			end
 		elseif #line[1] == 1 then
 			local tokenInst = line[1]
@@ -1062,16 +1113,18 @@ function luasm.getOutputBinary(labels, tokenizedLines, errors)
 		end
 	end
 	--print(#totalBin)
-				local binStr = ""
+			local binStr = ""
 			for bini, binv in pairs(totalBin) do
+				if binv then
 					local hex = sfor("%x", binv)
 					if slen(hex) == 1 then
 						hex = "0"..hex
 					end
 					binStr = binStr..hex.." "
+				end
 			end
 			print(binStr)		
-	return tokenizedLines, errors
+	return tokenizedLines, errors, totalBin
 end
 
 function luasm.getModRM(mod, reg, rm)

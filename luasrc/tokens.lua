@@ -72,7 +72,7 @@ local tokens = {
 	dword = "size",
 	by = "size",
 	wo = "size",
-
+	bootsig = "bootsig"
 }
 
 return tokens

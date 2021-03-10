@@ -36,8 +36,20 @@ if errors and #errors > 0 then
 	print("luasm:"..argv..":"..v[2]..":".." "..v[1])
 	end
 end
---[[binalloc(#outputbin)
+
+	local binStr = ""
+	for bini, binv in pairs(outputbin) do
+		if binv then
+			local hex = string.format("%x", binv)
+			if string.len(hex) == 1 then
+				hex = "0"..hex
+			end
+			binStr = binStr..hex.." "
+		end
+	end
+	print(binStr)	
+binalloc(#outputbin)
 for i,v in pairs(outputbin) do
-	writebyte(v)
+		writebyte(v)
 end
-makebin("hello.bin")]]
+makebin("hello.bin")

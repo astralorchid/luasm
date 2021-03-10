@@ -338,6 +338,9 @@ local opcodes = {
 ["scasb "] = 0xAE,
 ["scasw "] = 0xAF,
 ["scasd "] = 0xAF,
+
+["org imm "] = 0x0,
+["bootsig imm "] = 0x0
 }
 
 return opcodes
