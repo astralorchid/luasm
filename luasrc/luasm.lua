@@ -950,6 +950,58 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 			end
 			--print(binStr)		
 		elseif #line[2] == 2 then 
+			local opcode
+			local mnem = actualInst[1]
+			local bin = line[3]
+			local imm
+			local reg
+			local opcodeString = ""
+			local operand = actualInst[2]
+			local operandToken = tokenInst[2]
+			for b, token in pairs(tokenInst) do
+				opcodeString = opcodeString..token.." "
+			end
+			opcode = OPCODES[opcodeString]
+
+			if not opcode then
+				--print(tokenInst[1].." "..actualInst[1].."e")
+				tins(errors, {"Invalid token / instruction format", i})
+				break
+			else
+				tins(bin, opcode)
+			end
+
+			if mnem == "int" then
+				if not size then
+					size = "byte"
+				elseif size ~= "byte" then
+					--error here
+				end
+				if size == "byte" then
+					if type(operand) == "table" then
+						imm = operand[2]
+					else
+						imm = operand
+					end
+					local byte = luasm.getByte(imm)
+					if type(operand) == "table" then
+						operand[2] = byte
+						tins(bin, operand[1])
+					else
+						tins(bin, byte)
+					end
+				end
+			elseif mnem == "push" or mnem == "pop" then
+				if operandToken == "r16" or operandToken == "r32" then
+					reg = luasm.REG[operand]
+					bin[1] = bit.OR(bin[1], reg)
+				end
+			elseif mnem == "inc" or mnem == "dec" then
+				if operandToken == "r16" or operandToken == "r32" then
+					reg = luasm.REG[operand]
+					bin[1] = bit.OR(bin[1], reg)
+				end
+			end
 		elseif #line[1] == 1 then
 			local tokenInst = line[1]
 			local actualInst = line[2]

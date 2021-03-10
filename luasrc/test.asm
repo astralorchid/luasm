@@ -1,1 +1,1 @@
-add al, [bx]
+inc cx

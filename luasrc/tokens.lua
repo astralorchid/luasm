@@ -52,6 +52,11 @@ local tokens = {
 	cli = "cli",
 	sti = "sti",
 	hlt = "hlt",
+	int = "int",
+	push = "push",
+	pop = "pop",
+	inc = "inc",
+	dec = "dec",
 
 	["+"] = "+",
 	[":"] = ":",
