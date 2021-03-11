@@ -1108,9 +1108,18 @@ function luasm.getOutputBinary(labels, tokenizedLines, errors)
 								break
 							end
 						end
-						if bin[1] > 0x6F and bin[1] < 0x80 then
-							local rel = labelOffset-#totalBin-1
-							print("RELATIVE OFFSET "..tostring(rel))
+						if bin[1] > 0x6F and bin[1] < 0x80 then --convert label to a relative offset
+							local rel = labelOffset-#totalBin
+							
+							--local neg = false
+							--if rel < 0 then
+							--	rel = math.abs(rel)
+							--	neg = true
+							--end
+							rel = bit.shl(rel, 24)
+							rel = bit.shr(rel, 24)
+							--rel = bit.OR(rel, 0x10)
+							tins(totalBin, rel)
 						else
 							if size == 2 then
 								local firstByte, secondByte = luasm.getLittleEndianWord(labelOffset)

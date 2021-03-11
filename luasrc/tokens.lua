@@ -57,6 +57,7 @@ local tokens = {
 	pop = "pop",
 	inc = "inc",
 	dec = "dec",
+	jmp = "jmp",
 jo = "jo",
 jno = "jno",
 jb = "jb",

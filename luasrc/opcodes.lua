@@ -309,7 +309,7 @@ local opcodes = {
 ["jng imm "] = 0x7E,
 ["jnle imm "] = 0x7F,
 ["jg imm "] = 0x7F,
-
+["jmp imm "] = 0xEB,
 ["nop "] = 0x90,
 ["wait "] = 0x9B,
 ["retn "] = 0xC3,
