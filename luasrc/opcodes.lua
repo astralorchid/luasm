@@ -310,6 +310,7 @@ local opcodes = {
 ["jnle imm "] = 0x7F,
 ["jg imm "] = 0x7F,
 ["jmp imm "] = 0xEB,
+
 ["nop "] = 0x90,
 ["wait "] = 0x9B,
 ["retn "] = 0xC3,
@@ -325,6 +326,34 @@ local opcodes = {
 ["std "] = 0xFD,
 ["iret "] = 0xCF,
 ["iretd "] = 0xCF,
+
+["mul r8 "] = 0xF6,
+["mul mimm "] = 0xF6,
+["mul mr16 "] = 0xF6,
+["mul mr32 "] = 0xF6,
+["mul r16 "] = 0xF7,
+["mul r32 "] = 0xF7,
+
+["div r8 "] = 0xF6,
+["div mimm "] = 0xF6,
+["div mr16 "] = 0xF6,
+["div mr32 "] = 0xF6,
+["div r16 "] = 0xF7,
+["div r32 "] = 0xF7,
+
+["imul r8 "] = 0xF6,
+["imul mimm "] = 0xF6,
+["imul mr16 "] = 0xF6,
+["imul mr32 "] = 0xF6,
+["imul r16 "] = 0xF7,
+["imul r32 "] = 0xF7,
+
+["idiv r8 "] = 0xF6,
+["idiv mimm "] = 0xF6,
+["idiv mr16 "] = 0xF6,
+["idiv mr32 "] = 0xF6,
+["idiv r16 "] = 0xF7,
+["idiv r32 "] = 0xF7,
 
 ["movsb "] = 0xA4,
 ["movsw "] = 0xA5,

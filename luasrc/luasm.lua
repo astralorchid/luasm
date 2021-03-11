@@ -444,7 +444,7 @@ function luasm.setLabelOffsets(labels, tokenizedLines, errors, org)
 		local bin = line[3]
 		if type(bin[0]) == "table" then
 			for o, b in pairs(bin[0]) do
-				labels[b] = bin_ptr + org
+				labels[b] = bin_ptr + (org)
 				--print("Added offset")
 			end
 		end
@@ -1052,7 +1052,7 @@ function luasm.pass2(tokenizedLines, mem_tokens, errors)
 					reg = luasm.REG[operand]
 					bin[1] = bit.OR(bin[1], reg)
 				end
-			elseif opcode > 0x6F and opcode < 0x80 then
+			elseif (opcode > 0x6F and opcode < 0x80) or opcode == 0xEB then
 					if type(operand) == "table" then
 						imm = operand[2]
 						tins(bin, operand[1])
@@ -1108,17 +1108,22 @@ function luasm.getOutputBinary(labels, tokenizedLines, errors)
 								break
 							end
 						end
-						if bin[1] > 0x6F and bin[1] < 0x80 then --convert label to a relative offset
-							local rel = labelOffset-#totalBin
+						if (bin[1] > 0x6F and bin[1] < 0x80) or bin[1] == 0xEB then --convert label to a relative offset
+							local rel = (labelOffset-#totalBin)-1
 							
-							--local neg = false
-							--if rel < 0 then
-							--	rel = math.abs(rel)
-							--	neg = true
-							--end
+							--[[local neg = false
+							if rel < 0 then
+								rel = math.abs(rel)
+								neg = true
+							end]]
 							rel = bit.shl(rel, 24)
 							rel = bit.shr(rel, 24)
-							--rel = bit.OR(rel, 0x10)
+							--[[if neg then
+							rel = bit.OR(rel, 0x80)
+							else
+							rel = bit.shl(rel, 25)
+							rel = bit.shr(rel, 25)
+							end]]
 							tins(totalBin, rel)
 						else
 							if size == 2 then
